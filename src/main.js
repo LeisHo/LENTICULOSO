@@ -276,12 +276,12 @@ window.renderLenticulosoDevGroups = function renderLenticulosoDevGroups() {
 // endpoint is not there (file://, a plain static server, an unconfigured
 // deployment) — which is the normal local-development case.
 const SETTINGS_ENDPOINT = '/api/save-settings';
-// Client-side half of §12l's DEV_PANEL_SAVE_SECRET. Deliberately empty in
-// the repo: fill it in per-deployment (or leave it empty to run
-// localStorage-only). The endpoint rejects a POST whose header does not
-// match the server-side value, so an empty string here simply means "no
-// remote saves from this build."
-const DEV_PANEL_SAVE_SECRET = '';
+// Client-side half of §12l's DEV_PANEL_SAVE_SECRET. NOT a real secret — it
+// ships in this page's source like every other client value; it only
+// keeps a random visitor from spamming commits. It is the one
+// workspace-wide shared value (identical in HANDO, CLICKO, DICKOCLICKO) and
+// must match the DEV_PANEL_SAVE_SECRET env var on the Vercel project.
+const DEV_PANEL_SAVE_SECRET = 'PkrbMti03M6xm3FEThYXa8gGW_08BOGj';
 
 async function remoteGetSettings() {
     try {
@@ -302,21 +302,44 @@ async function remoteGetSettings() {
 // such fields already, written by two different code paths — a blind POST
 // from either one would wipe the other. Any future top-level field added
 // to this JSON needs the same discipline, everywhere it is written.
-async function remotePutSettings(patch) {
-    if (!DEV_PANEL_SAVE_SECRET) return false;
-    try {
-        const current = (await remoteGetSettings()) || {};
-        const merged = { ...current, ...patch };
-        const resp = await fetch(SETTINGS_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-dev-panel-secret': DEV_PANEL_SAVE_SECRET },
-            body: JSON.stringify(merged),
-        });
-        return resp.ok;
-    } catch {
-        return false;
-    }
+//
+// Writes are also SERIALISED through one queue: the dev panel, the layout
+// engine and the Workbench's profile sync all write here, and two
+// overlapping GET→POST cycles would each merge onto the same stale GET, so
+// the later POST would silently drop the earlier one's key.
+let remoteQueue = Promise.resolve();
+function remotePutSettings(patch) {
+    if (!DEV_PANEL_SAVE_SECRET) return Promise.resolve(false);
+    const run = async () => {
+        try {
+            const current = (await remoteGetSettings()) || {};
+            const merged = { ...current, ...patch };
+            const resp = await fetch(SETTINGS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-dev-panel-secret': DEV_PANEL_SAVE_SECRET },
+                body: JSON.stringify(merged),
+            });
+            return resp.ok;
+        } catch {
+            return false;
+        }
+    };
+    const p = remoteQueue.then(run, run);
+    remoteQueue = p.catch(() => false);
+    return p;
 }
+// The Workbench (src/lenticular/sync.mjs) syncs its profiles through the
+// same file and the same queue, under its own top-level key.
+// Its read must THROW on failure: remoteGetSettings() returns null for both
+// "nothing saved yet" and "endpoint unreachable", and the sync badge must
+// never claim "synced" when git was never reached.
+async function remoteGetSettingsStrict() {
+    const resp = await fetch(SETTINGS_ENDPOINT, { cache: 'no-store' });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data || !data.ok) throw new Error((data && data.error) || ('HTTP ' + resp.status));
+    return data.settings;
+}
+workbench.app.attachRemote({ get: remoteGetSettingsStrict, put: remotePutSettings, secret: DEV_PANEL_SAVE_SECRET });
 
 // The engine's own two-tier persistence (ENGINE_API.md -> Persistence):
 // registerStorageBackend() swaps localStorage for a host backend. This one
@@ -364,20 +387,26 @@ window.addEventListener('load', () => {
         }
     } catch { /* private mode */ }
 
-    // Write-through on Sync. Extra listeners on the EXISTING buttons rather
-    // than edits inside devPanel.js — that copy stays verbatim, and the
-    // template's own saveDevPanelSettings() (localStorage) still runs first,
-    // so a failed remote save can never cost a local one.
-    const syncButtons = [
-        document.getElementById('devHeaderSyncBtn'),
-        ...Array.from(document.querySelectorAll('.dev-buttons button'))
-            .filter(b => (b.getAttribute('onclick') || '').includes('saveDevPanelSettings')),
-    ].filter(Boolean);
-    syncButtons.forEach(btn => btn.addEventListener('click', () => {
-        if (typeof window.captureFullDevPanelState === 'function') {
-            remotePutSettings({ devPanel: window.captureFullDevPanelState() });
-        }
-    }));
+    // Write-through to git on every dev-panel save. saveDevPanelSettings()
+    // is a true global in the (verbatim) template, and it is called both by
+    // the Sync buttons AND directly by "Set Default" — so wrapping the
+    // function catches every path, where click listeners on the buttons
+    // would miss Set Default. The template's own localStorage save still
+    // runs first, so a failed remote save never costs a local one.
+    if (typeof window.saveDevPanelSettings === 'function' && !window.saveDevPanelSettings.__gitWrapped) {
+        const localSave = window.saveDevPanelSettings;
+        const wrapped = function () {
+            localSave.apply(this, arguments);
+            if (typeof window.captureFullDevPanelState !== 'function') return;
+            remotePutSettings({ devPanel: window.captureFullDevPanelState() }).then(ok => {
+                if (typeof window.flashDevHeaderSyncStatus === 'function') {
+                    window.flashDevHeaderSyncStatus(ok, ok ? 'Saved to git' : 'Git save failed — saved locally');
+                }
+            });
+        };
+        wrapped.__gitWrapped = true;
+        window.saveDevPanelSettings = wrapped;
+    }
 
     // Startup load: remote wins over localStorage when it is actually there.
     remoteGetSettings().then(settings => {
@@ -389,6 +418,9 @@ window.addEventListener('load', () => {
         }
         if (settings.devPanel && typeof window.applyFullDevPanelState === 'function') {
             window.applyFullDevPanelState(settings.devPanel);
+            // Cache the git copy locally too, so the panel's Reset (which
+            // reads localStorage) restores the git-saved state (§12l).
+            try { localStorage.setItem('devPanelSettings', JSON.stringify(settings.devPanel)); } catch { /* private mode */ }
         }
     });
 });

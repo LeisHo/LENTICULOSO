@@ -104,6 +104,45 @@ Verified:
 - The user's own launcher server (python serve.py 8430 --open) serves the
   app; the page loads all 5 tabs and the fallback message is cleared on mount.
 
+--------------------------------------------------------------------------------
+2026-09-23  -  03:04 AM - 03:20 AM
+
+Printer presets and paper settings, per request.
+
+Research findings (sources in src/lenticular/core/presets.mjs):
+- Epson drivers take image data at 720 ppi (360 in lower modes) and
+  resample anything else. So every Epson preset builds at 720 DPI, not the
+  app's generic 600, which would have been resampled and blurred.
+- Paper matters: glossy resin-coated photo paper keeps thin strips sharp;
+  plain paper wicks ink (ghosting) and cockles, which shifts the pitch.
+  Thickness does not affect the optics.
+
+Added:
+- core/presets.mjs: 10 Epson EcoTank printer presets (ET-2400, 2800, 2850,
+  3850, 4800, 4850, 5850, 8500, 8550, 15000) and 13 paper presets (Epson,
+  Canon, HP home glossy/semi-gloss/matte + plain), published weight/
+  thickness only (blank where not found), lenticular suitability,
+  Epson driver paper-type mapping.
+- ui/pickers.mjs: grouped printer/paper selects (saved profiles + presets)
+  in Calibrate and Create; paper profiles (lw.papers) with "start from
+  preset" in the Printer Profiles tab, plus reference tables with sources.
+- Lens calibrations record the paper; Create warns on native-DPI mismatch,
+  plain paper, and paper differing from the calibration paper; the
+  checklist shows the paper and the Epson driver paper-type setting.
+- tests/presets.test.mjs (6 tests; 27 total pass).
+
+Verified:
+- Browser on :8430: preset selection sets 720 DPI; warnings fire for
+  600 DPI and plain paper; Create checklist shows paper + driver setting;
+  a preset-based printer profile saves with its native DPI list; both
+  reference tables render; no console errors. Test data cleared afterwards.
+
+--------------------------------------------------------------------------------
+2026-09-23  -  03:12 AM
+
+Correction to the entry above: its time range "03:04 AM - 03:20 AM" is
+wrong. The measured finish was 03:11:54 AM (03:04:38 → 03:11:54 = 7m16s).
+
 ================================================================================
 APPEND-ONLY. Never rewrite, reorder, or delete a prior entry, even to fix
 formatting (CLAUDE.md §4a / Never-Skip rule #3). If an entry needs a

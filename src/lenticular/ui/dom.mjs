@@ -48,6 +48,7 @@ export const GLOSSARY = {
     frames: ['Frame count', 'How many images share each lens ridge. More frames = smoother animation but thinner strips; each frame gets (DPI ÷ LPI ÷ frames) printer pixels per ridge. Below about 2 pixels each, frames start to bleed into each other.'],
     orientation: ['Lens orientation', 'Vertical: ridges run top-to-bottom, the image changes as you move side-to-side (best for flips/animation viewed with both eyes). Horizontal: ridges run left-to-right, the image changes as you tilt up/down.'],
     sampling: ['Frame sampling', 'Through the lens each frame is seen as one sample per ridge. "Lenticule average" pre-averages each frame over the ridge width (smoother, less shimmer). "Direct" copies pixels as-is (sharper edges, more aliasing).'],
+    paper: ['Paper', 'Paper matters for lenticular prints. Glossy resin-coated photo paper keeps each thin strip sharp; plain paper soaks ink sideways (strips blur together) and swells where it gets wet, which changes the printed pitch. Calibrate on the same paper you will print on, and set the printer driver’s paper type to match.'],
     boundary: ['Boundary pixels', 'When a strip is not a whole number of pixels, some pixels straddle two frames. "Nearest" gives the pixel to one frame (crisp, no ghosting). "Blend" mixes them by area (exact position, slight ghosting).'],
 };
 
@@ -69,6 +70,22 @@ export function textField(label, value, { onInput, placeholder } = {}) {
 }
 export function selectField(label, value, options, { onChange, help } = {}) {
     const sel = h('select', options.map(([v, text]) => h('option', { value: v, selected: String(v) === String(value) }, text)));
+    if (onChange) sel.addEventListener('change', () => onChange(sel.value, sel));
+    return { el: h('label.field', h('span.field-label', label, help ? helpTip(help) : null), h('span.field-input', sel)), input: sel };
+}
+
+/**
+ * <select> with <optgroup>s. groups: [[groupLabel|null, [[value, text], ...]], ...]
+ * Empty groups are skipped.
+ */
+export function groupedSelectField(label, value, groups, { onChange, help } = {}) {
+    const sel = h('select');
+    for (const [glabel, opts] of groups) {
+        if (!opts.length) continue;
+        const parent = glabel ? h('optgroup', { label: glabel }) : sel;
+        for (const [v, text] of opts) parent.appendChild(h('option', { value: v, selected: String(v) === String(value ?? '') }, text));
+        if (glabel) sel.appendChild(parent);
+    }
     if (onChange) sel.addEventListener('change', () => onChange(sel.value, sel));
     return { el: h('label.field', h('span.field-label', label, help ? helpTip(help) : null), h('span.field-input', sel)), input: sel };
 }

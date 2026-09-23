@@ -45,6 +45,21 @@ export function checkCreateSettings(s) {
     if (!COMMON_NATIVE_DPI.includes(s.dpi)) {
         add('info', `${s.dpi} DPI is not a common printer-native resolution (${COMMON_NATIVE_DPI.join(', ')}). If your driver resamples, the strips blur.`);
     }
+    // Printer-native resolution (e.g. Epson drivers: 720/360 ppi). A raster
+    // at any other DPI gets resampled by the driver, smearing the strips.
+    if (Array.isArray(s.printerNativeDpi) && s.printerNativeDpi.length && !s.printerNativeDpi.includes(s.dpi)) {
+        add('warn', `This printer's driver works at ${s.printerNativeDpi.join(' / ')} DPI. At ${s.dpi} DPI the driver will resample the image and blur the strips — use ${Math.max(...s.printerNativeDpi)} DPI.`);
+    }
+    // Paper: coating/stability (see presets.mjs for the reasoning).
+    if (s.paper) {
+        if (s.paper.lenticular === 'poor') add('warn', `${s.paper.name}: plain paper absorbs ink sideways and cockles when wet — strips blur into each other and the pitch can drift. Use glossy or semi-gloss photo paper.`);
+        else if (s.paper.lenticular === 'fair') add('info', `${s.paper.name}: matte paper gives softer strips than glossy photo paper; expect some ghosting.`);
+    } else {
+        add('info', 'No paper selected. Glossy resin-coated photo paper gives the sharpest strips.');
+    }
+    if (s.calibratedPaperName && s.paper && s.calibratedPaperName !== s.paper.name) {
+        add('warn', `The lens was calibrated on "${s.calibratedPaperName}" but you are printing on "${s.paper.name}". Papers can stretch differently under ink, which shifts the effective pitch — re-check with a test print.`);
+    }
     if (s.lensWidthMm && s.lensHeightMm) {
         const fits = (s.widthMm <= s.lensWidthMm + 0.01 && s.heightMm <= s.lensHeightMm + 0.01)
             || (s.widthMm <= s.lensHeightMm + 0.01 && s.heightMm <= s.lensWidthMm + 0.01);

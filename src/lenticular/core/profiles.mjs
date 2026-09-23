@@ -47,6 +47,10 @@ export function makeLensProfile(fields = {}) {
             printerProfileId: fields.calibratedWith?.printerProfileId || null,
             printerName: fields.calibratedWith?.printerName || '',
             dpi: fields.calibratedWith?.dpi == null ? null : Number(fields.calibratedWith.dpi),
+            // The paper matters: its coating and dimensional stability are
+            // part of the print chain the effective pitch was measured on.
+            paperId: fields.calibratedWith?.paperId || null,
+            paperName: fields.calibratedWith?.paperName || '',
         },
         calibrationHistory: Array.isArray(fields.calibrationHistory) ? fields.calibrationHistory.slice() : [],
         notes: fields.notes || '',
@@ -63,11 +67,46 @@ export function makePrinterProfile(fields = {}) {
         name: fields.name || 'Untitled printer',
         model: fields.model || '',
         dpi: num(fields.dpi, 600),
+        // Set when the profile was started from a built-in preset; keeps
+        // the preset's native-resolution list available for checks.
+        presetId: fields.presetId || null,
+        nativeDpi: Array.isArray(fields.nativeDpi) ? fields.nativeDpi.map(Number) : null,
         media: fields.media || '',
         notes: fields.notes || '',
         createdAt: fields.createdAt || new Date().toISOString(),
         updatedAt: fields.updatedAt || new Date().toISOString(),
     };
+}
+
+/** A user-defined paper (the built-in ones live in presets.mjs). */
+export function makePaperProfile(fields = {}) {
+    const finish = ['glossy', 'semi-gloss', 'luster', 'matte', 'plain', 'other'].includes(fields.finish) ? fields.finish : 'glossy';
+    return {
+        kind: 'paper',
+        schemaVersion: PROFILE_SCHEMA_VERSION,
+        id: fields.id || newId('paper'),
+        name: fields.name || 'Untitled paper',
+        brand: fields.brand || '',
+        model: fields.model || '',
+        finish,
+        base: fields.base || '',
+        gsm: fields.gsm == null || fields.gsm === '' ? null : Number(fields.gsm),
+        thicknessMil: fields.thicknessMil == null || fields.thicknessMil === '' ? null : Number(fields.thicknessMil),
+        lenticular: ['best', 'good', 'fair', 'poor'].includes(fields.lenticular) ? fields.lenticular : (finish === 'plain' ? 'poor' : finish === 'matte' ? 'fair' : 'good'),
+        driverSetting: fields.driverSetting || null,
+        presetId: fields.presetId || null,
+        notes: fields.notes || '',
+        createdAt: fields.createdAt || new Date().toISOString(),
+        updatedAt: fields.updatedAt || new Date().toISOString(),
+    };
+}
+
+export function validatePaper(p) {
+    const e = [];
+    if (!p.name || !String(p.name).trim()) e.push('Name is required.');
+    if (p.gsm != null && !(p.gsm > 0)) e.push('Weight must be positive.');
+    if (p.thicknessMil != null && !(p.thicknessMil > 0)) e.push('Thickness must be positive.');
+    return e;
 }
 
 /** Validation messages for a lens profile (empty = OK). */
@@ -184,6 +223,7 @@ export const DEFAULT_CALIBRATION = {
     orientation: 'vertical',
     phaseCount: 8,
     printerProfileId: null,
+    paperId: null,
     coarseSelected: null,
     fineSelected: null,
     phaseSelected: null,

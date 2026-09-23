@@ -13,6 +13,9 @@ import { checkCreateSettings, outputGeometry } from '../core/checks.mjs';
 import { injectPngPhys, encodeTiff } from '../core/encode.mjs';
 import { cloneTransform } from '../core/transform.mjs';
 import { drawFrame, renderFrameRGBA, makeTestFrames, loadImageFile } from './frameRender.mjs';
+import { printerSelect, paperSelect, suitabilityText } from './pickers.mjs';
+import { projectId, sourcePrefix, formatBytes, PROJECT_VERSION } from '../core/projects.mjs';
+import { resolvePrinter, resolvePaper, nativeDpiOf, epsonDriverSettingFor, thicknessUm } from '../core/presets.mjs';
 
 const SIZE_PRESETS = [
     ['6x4l', '6 × 4 in (landscape)', 152.4, 101.6],
@@ -28,7 +31,7 @@ const SIZE_PRESETS = [
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const DEFAULT_CREATE = {
-    lensId: '', printerId: '',
+    lensId: '', printerId: '', paperId: '',
     manualLpi: 100, manualDpi: 600, orientation: 'vertical',
     sizePreset: '6x4l', widthMm: 152.4, heightMm: 101.6, units: 'in',
     sequenceMode: 'loop', boundary: 'nearest', sampling: 'lenticule',
@@ -52,7 +55,8 @@ export function mountCreate(root, app) {
     // ------------------------------------------------------------- derived
     function params() {
         const lens = c.lensId ? app.lenses.get(c.lensId) : null;
-        const printer = c.printerId ? app.printers.get(c.printerId) : null;
+        const printer = resolvePrinter(c.printerId, app.printers);
+        const paper = resolvePaper(c.paperId, app.papers);
         const lpi = lens ? (lens.effectiveLpi ?? lens.nominalLpi) : c.manualLpi;
         const dpi = printer ? printer.dpi : c.manualDpi;
         const sequence = frames.length ? buildSequence(frames.map((_, i) => i), c.sequenceMode) : [];
@@ -70,7 +74,7 @@ export function mountCreate(root, app) {
         }
         phase = ((phase + (Number(c.phaseShift) || 0)) % 1 + 1) % 1;
         return {
-            lens, printer, lpi, dpi, sequence, n, phase,
+            lens, printer, paper, lpi, dpi, sequence, n, phase,
             orientation: c.orientation,
             widthMm: c.widthMm, heightMm: c.heightMm,
             boundary: c.boundary, sampling: c.sampling,
@@ -78,6 +82,185 @@ export function mountCreate(root, app) {
         };
     }
     const signature = p => JSON.stringify([p.lpi, p.dpi, p.sequence, p.phase, p.orientation, p.widthMm, p.heightMm, p.boundary, p.sampling, frames.map(f => [f.id, f.transform])]);
+
+    // --------------------------------------------------------- saved projects
+    // A saved project = generated PNG + every source image (original bytes)
+    // + the Create settings, stored in the git repo (api/projects.js).
+    const savedHost = h('div');
+    let savedList = null;       // null = not loaded yet
+    let savedError = null;
+    let busy = null;            // progress text while saving/opening
+
+    async function loadSavedList() {
+        if (!app.projects) { savedError = 'Saved projects need the deployed site (git storage).'; renderSaved(); return; }
+        try { savedList = await app.projects.list(); savedError = null; }
+        catch (e) { savedList = null; savedError = e.message; }
+        renderSaved();
+    }
+
+    function renderSaved() {
+        clear(savedHost);
+        const count = savedList ? savedList.length : 0;
+        const body = [];
+        if (busy) body.push(h('p.busy', busy));
+        if (savedError) body.push(h('p.muted', savedError));
+        else if (!savedList) body.push(h('p.muted', 'Loading…'));
+        else if (!count) body.push(h('p.muted', 'No saved projects yet. Generate an image, then use "Save project" under the export buttons.'));
+        else body.push(h('div.saved-grid', savedList.map(p => savedCard(p))));
+        const refresh = h('button', { type: 'button' }, 'Refresh');
+        refresh.addEventListener('click', () => { savedList = null; renderSaved(); loadSavedList(); });
+        savedHost.append(h('details.card.saved-projects', { open: count > 0 || !!busy },
+            h('summary', h('h2', `Saved projects${savedList ? ` (${count})` : ''}`)),
+            h('p.muted.small', 'Stored in the project\'s GitHub repo: the generated image, its source images and the settings. Open one to continue where you left off.'),
+            ...body, h('div.btn-row', refresh)));
+    }
+
+    function savedCard(p) {
+        const open = h('button.primary', { type: 'button', disabled: !!busy }, 'Open');
+        open.addEventListener('click', () => openProject(p));
+        const dl = h('button', { type: 'button', disabled: !!busy }, 'Download PNG');
+        dl.addEventListener('click', () => downloadSavedOutput(p));
+        const del = h('button.danger', { type: 'button', disabled: !!busy }, 'Delete');
+        del.addEventListener('click', async () => {
+            if (!confirm(`Delete saved project "${p.name}" from the repo? (It stays in git history.)`)) return;
+            busy = 'Deleting…'; renderSaved();
+            try { await app.projects.remove(p.id); toast(`Deleted "${p.name}"`, 'good'); }
+            catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+            busy = null; await loadSavedList();
+        });
+        return h('div.saved-card',
+            p.thumbnail ? h('img.saved-thumb', { src: p.thumbnail, alt: '' }) : h('div.saved-thumb'),
+            h('div.saved-meta',
+                h('strong', p.name),
+                h('span.muted.small', `${new Date(p.createdAt).toLocaleString()} · ${p.frameCount} frames · ${p.lpi} LPI · ${p.dpi} DPI`),
+                h('span.muted.small', `${p.widthPx} × ${p.heightPx} px · ${formatBytes(p.totalBytes)}`)),
+            h('div.btn-row', open, dl, del));
+    }
+
+    async function saveProject(name) {
+        if (!result || !app.projects) return;
+        const p = params();
+        const id = projectId(name);
+        const q = result.params;
+        busy = 'Preparing…'; renderSaved();
+        try {
+            const outBlob = new Blob([injectPngPhys(await canvasToPngBytes(result.canvas), q.dpi)], { type: 'image/png' });
+            const files = [];
+            const sources = frames.map((f, i) => f.src.kind === 'image'
+                ? { blob: f.src.file, prefix: sourcePrefix(i, f.name), frame: f }
+                : { blob: null, frame: f });
+            const totalPieces = app.projects.piecesFor(outBlob.size) + sources.reduce((n, s) => n + (s.blob ? app.projects.piecesFor(s.blob.size) : 0), 0);
+            let done = 0;
+            const tick = () => { done++; busy = `Uploading ${done} / ${totalPieces}…`; renderSaved(); };
+            const outChunks = await app.projects.uploadFile(outBlob, 'output.png', tick);
+            files.push(...outChunks);
+            const frameEntries = [];
+            for (const s of sources) {
+                if (!s.blob) {
+                    frameEntries.push({ kind: 'test', name: s.frame.name, index: s.frame.src.index, total: s.frame.src.total, label: s.frame.src.label });
+                    continue;
+                }
+                const chunks = await app.projects.uploadFile(s.blob, s.prefix, tick);
+                files.push(...chunks);
+                frameEntries.push({ kind: 'image', name: s.frame.name, mime: s.blob.type || 'application/octet-stream', size: s.blob.size, transform: s.frame.transform, chunks });
+            }
+            busy = 'Committing…'; renderSaved();
+            const totalBytes = outBlob.size + sources.reduce((n, s) => n + (s.blob ? s.blob.size : 0), 0);
+            const manifest = {
+                version: PROJECT_VERSION, id, name, createdAt: new Date().toISOString(),
+                create: { ...c },
+                snapshot: {
+                    lens: p.lens ? { id: p.lens.id, name: p.lens.name, effectiveLpi: p.lens.effectiveLpi, nominalLpi: p.lens.nominalLpi } : null,
+                    printer: p.printer ? { id: p.printer.id, name: p.printer.name, dpi: p.printer.dpi } : null,
+                    paper: p.paper ? { id: p.paper.id, name: p.paper.name } : null,
+                    lpi: q.lpi, dpi: q.dpi, phase: q.phase, orientation: q.orientation, sequence: q.sequence,
+                },
+                frames: frameEntries,
+                output: { mime: 'image/png', size: outBlob.size, widthPx: q.widthPx, heightPx: q.heightPx, dpi: q.dpi, chunks: outChunks },
+            };
+            const indexEntry = {
+                id, name, createdAt: manifest.createdAt, thumbnail: thumbnailOf(result.canvas),
+                frameCount: frames.length, lpi: q.lpi, dpi: q.dpi, widthPx: q.widthPx, heightPx: q.heightPx, totalBytes,
+            };
+            await app.projects.commit(id, manifest, files, indexEntry);
+            toast(`Saved "${name}" to the repo`, 'good');
+        } catch (e) {
+            toast('Save failed: ' + e.message, 'error');
+        }
+        busy = null;
+        await loadSavedList();
+    }
+
+    async function openProject(entry) {
+        busy = `Opening "${entry.name}"…`; renderSaved();
+        try {
+            const m = await app.projects.manifest(entry.id);
+            const pieces = m.output.chunks.length + m.frames.reduce((n, f) => n + (f.chunks ? f.chunks.length : 0), 0);
+            let done = 0;
+            const tick = () => { done++; busy = `Downloading ${done} / ${pieces}…`; renderSaved(); };
+            const loaded = [];
+            for (const f of m.frames) {
+                if (f.kind === 'test') {
+                    const src = makeTestFrames(f.total)[f.index];
+                    loaded.push({ id: nextId++, name: f.name, src, transform: cloneTransform() });
+                    continue;
+                }
+                const blob = await app.projects.downloadFile(f.chunks, f.mime, tick);
+                const file = new File([blob], f.name, { type: f.mime });
+                const src = await loadImageFile(file);
+                loaded.push({ id: nextId++, name: f.name, src, transform: cloneTransform(f.transform) });
+            }
+            const outBlob = await app.projects.downloadFile(m.output.chunks, m.output.mime, tick);
+            const bmp = await createImageBitmap(outBlob);
+            const canvas = makeCanvas(bmp.width, bmp.height);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(bmp, 0, 0);
+            const raster = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+            // restore settings + frames, then attach the saved output as the current result
+            Object.assign(c, m.create);
+            persist();
+            frames = loaded;
+            selectedId = frames[0]?.id ?? null;
+            referenceId = frames[0]?.id ?? null;
+            const p = params();
+            const snap = m.snapshot;
+            result = {
+                canvas, raster, sig: signature(p), fromSaved: m.name,
+                params: { ...p, lpi: snap.lpi, dpi: snap.dpi, phase: snap.phase, orientation: snap.orientation, sequence: snap.sequence, n: snap.sequence.length,
+                    lens: snap.lens?.name, printer: snap.printer?.name, widthPx: m.output.widthPx, heightPx: m.output.heightPx },
+            };
+            if (p.lpi !== snap.lpi || p.dpi !== snap.dpi) {
+                toast('Opened. Note: your lens/printer profiles changed since this was saved — regenerate before exporting.', 'info');
+            } else {
+                toast(`Opened "${m.name}"`, 'good');
+            }
+        } catch (e) {
+            toast('Open failed: ' + e.message, 'error');
+        }
+        busy = null;
+        renderSaved();
+        renderLeft();
+        renderRight();
+    }
+
+    async function downloadSavedOutput(entry) {
+        busy = `Downloading "${entry.name}"…`; renderSaved();
+        try {
+            const m = await app.projects.manifest(entry.id);
+            const blob = await app.projects.downloadFile(m.output.chunks, m.output.mime);
+            downloadBytes(blob, `${entry.id}.png`, 'image/png');
+        } catch (e) { toast('Download failed: ' + e.message, 'error'); }
+        busy = null; renderSaved();
+    }
+
+    function thumbnailOf(canvas) {
+        const s = Math.min(1, 240 / Math.max(canvas.width, canvas.height));
+        const t = makeCanvas(Math.max(1, Math.round(canvas.width * s)), Math.max(1, Math.round(canvas.height * s)));
+        const tctx = t.getContext('2d');
+        tctx.imageSmoothingQuality = 'high';
+        tctx.drawImage(canvas, 0, 0, t.width, t.height);
+        return t.toDataURL('image/jpeg', 0.7);
+    }
 
     // --------------------------------------------------------------- layout
     const left = h('div.create-left');
@@ -87,7 +270,9 @@ export function mountCreate(root, app) {
         root.append(
             h('div.lw-page-head', h('h1', 'Create a lenticular image'),
                 h('p.lead', 'Choose your calibrated lens and printer, add 2 or more images, line them up, and export a print-ready interlaced PNG.')),
+            savedHost,
             h('div.create-layout', left, right));
+        renderSaved();
         renderLeft();
         renderRight();
     }
@@ -108,14 +293,12 @@ export function mountCreate(root, app) {
     function cardLensPrinter() {
         const p = params();
         const lenses = app.lenses.list();
-        const printers = app.printers.list();
         const lensSel = selectField('Lens profile', c.lensId, [['', '— manual entry —'], ...lenses.map(l => [l.id, `${l.name} — ${l.effectiveLpi != null ? l.effectiveLpi + ' LPI' : 'UNCALIBRATED (' + l.nominalLpi + ' nominal)'}`])], {
             help: 'lpi',
             onChange: v => { c.lensId = v; const l = v && app.lenses.get(v); if (l) c.orientation = l.orientation; changed(); },
         });
-        const prSel = selectField('Printer profile', c.printerId, [['', '— manual entry —'], ...printers.map(x => [x.id, `${x.name} — ${x.dpi} DPI`])], {
-            help: 'dpi', onChange: v => { c.printerId = v; changed(); },
-        });
+        const prSel = printerSelect(app, c.printerId, { label: 'Printer', noneLabel: '— manual entry —', onChange: v => { c.printerId = v; changed(); } });
+        const paSel = paperSelect(app, c.paperId, { onChange: v => { c.paperId = v; changed(); } });
         return h('div.card.step',
             h('h2', h('span.step-n', '1'), 'Lens & printer'),
             lensSel.el,
@@ -124,8 +307,12 @@ export function mountCreate(root, app) {
                 ` nominal ${p.lens.nominalLpi} · pitch ${fmt(lpiToPitchMm(p.lpi), 5)} mm`)
                 : numberField('Effective LPI', c.manualLpi, { unit: 'LPI', min: 1, step: 'any', onInput: v => { if (v > 0) { c.manualLpi = v; changed('right'); } } }).el,
             prSel.el,
-            p.printer ? h('p.muted.small', `${p.printer.dpi} DPI${p.printer.media ? ' · ' + p.printer.media : ''}`)
+            p.printer ? h('p.muted.small', `${p.printer.dpi} DPI${p.printer.media ? ' · ' + p.printer.media : ''}${p.printer.notes ? ' — ' + p.printer.notes : ''}`)
                 : numberField('Printer DPI / PPI', c.manualDpi, { unit: 'DPI', min: 50, onInput: v => { if (v > 0) { c.manualDpi = v; changed('right'); } } }).el,
+            paSel.el,
+            p.paper ? h('p.muted.small', [suitabilityText(p.paper),
+                p.paper.gsm ? `${p.paper.gsm} g/m²` : null,
+                thicknessUm(p.paper) ? `${thicknessUm(p.paper)} µm` : null].filter(Boolean).join(' · ')) : null,
             orientationPicker(c.orientation, v => { c.orientation = v; changed(); }),
             h('div.derived',
                 row('Pixels per lenticule', `${fmt(pixelsPerLenticule(p.dpi, p.lpi), 5)} px`),
@@ -395,6 +582,7 @@ export function mountCreate(root, app) {
             lpi: p.lpi, dpi: p.dpi, widthMm: c.widthMm, heightMm: c.heightMm, frameCount: p.n,
             orientation: c.orientation, lensOrientation: p.lens?.orientation, lensCalibrated: p.lensCalibrated,
             calibratedDpi: p.lens?.calibratedWith?.dpi, lensWidthMm: p.lens?.widthMm, lensHeightMm: p.lens?.heightMm,
+            printerNativeDpi: nativeDpiOf(p.printer), paper: p.paper, calibratedPaperName: p.lens?.calibratedWith?.paperName || null,
         });
         const blocked = issues.some(i => i.level === 'error');
         const genBtn = h('button.primary.big', { type: 'button', disabled: blocked }, result ? 'Regenerate interlaced image' : 'Generate interlaced image');
@@ -527,6 +715,8 @@ export function mountCreate(root, app) {
                 item(p.lensCalibrated, 'Effective LPI', `${q.lpi}${p.lensCalibrated ? ' (calibrated)' : ' (NOT calibrated)'}`),
                 item(!p.lens || p.lens.orientation === q.orientation, 'Lens orientation', q.orientation === 'vertical' ? 'Vertical ridges ▥' : 'Horizontal ridges ▤'),
                 item(true, 'Printer DPI/PPI', `${q.dpi}${q.printer ? ' — ' + q.printer : ''}`),
+                item(!!p.paper && p.paper.lenticular !== 'poor', 'Paper', p.paper ? `${p.paper.name} — ${suitabilityText(p.paper)}` : 'not specified'),
+                p.paper && p.printer && p.printer.brand !== 'HP' && /epson/i.test(p.printer.name) ? item(true, 'Driver paper type', epsonDriverSettingFor(p.paper) || '—') : null,
                 item(true, 'Physical output', `${fmt(c.widthMm, 2)} × ${fmt(c.heightMm, 2)} mm (${fmt(mmToIn(c.widthMm), 3)} × ${fmt(mmToIn(c.heightMm), 3)} in)`),
                 item(true, 'Pixel dimensions', `${q.widthPx} × ${q.heightPx} px`),
                 confirm('scale100', 'I will print at 100% / Actual Size'),
@@ -535,10 +725,25 @@ export function mountCreate(root, app) {
             ),
             issueList(issues.filter(i => i.level !== 'info')),
             h('div.btn-row', pngBtn, tifBtn),
+            saveProjectRow(),
             h('p.muted.small', 'The PNG embeds its DPI (pHYs chunk). After printing, measure: the image should be exactly the physical size above. Place the lens with its ridges running ' + (q.orientation === 'vertical' ? 'top-to-bottom' : 'left-to-right') + '. If the sequence plays backwards, use Reverse frame order and regenerate.'),
         );
         refreshButtons();
         return card;
+    }
+
+    function saveProjectRow() {
+        const nameIn = h('input', { type: 'text', placeholder: 'Project name', value: result?.fromSaved || '' });
+        const btn = h('button', { type: 'button', disabled: !app.projects || !!busy }, 'Save project (image + sources) to git');
+        btn.addEventListener('click', () => {
+            const name = nameIn.value.trim() || `Lenticular ${new Date().toLocaleString()}`;
+            saveProject(name);
+        });
+        return h('div.save-project',
+            h('div.btn-row', nameIn, btn),
+            h('p.muted.small', app.projects
+                ? 'Saves this generated image, every source image (original files) and these settings to the repo, so you can open it again later from "Saved projects".'
+                : 'Saving projects needs the deployed site (git storage).'));
     }
 
     function issueList(issues) {
@@ -547,6 +752,8 @@ export function mountCreate(root, app) {
     }
 
     render();
+    loadSavedList();
+    app.on('projects-ready', () => loadSavedList());
     app.on('profiles', () => { if (!root.hidden) render(); });
     app.on('settings', () => { if (!root.hidden) renderRight(); });
     return { refresh: render, _debug: { get frames() { return frames; }, get result() { return result; }, params } };

@@ -64,7 +64,7 @@ export function renderCalibrationSheet(opts) {
     const res = 1 / layout.stripLengthIn;
     const info = [
         `Raster ${W} × ${H} px @ ${dpi} DPI = ${widthMm} × ${heightMm} mm · lenticules ${orientation} · generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}` +
-            (opts.printerName ? ` · printer: ${opts.printerName}` : ''),
+            (opts.printerName ? ` · printed with: ${opts.printerName}` : ''),
         kind === 'phase'
             ? `Phase test at ${opts.lpi} LPI (pitch ${lpiToPitchMm(opts.lpi).toFixed(4)} mm). Align the lens against the paper's reference corner, look STRAIGHT ON, pick the strip that looks most solid BLACK.`
             : `Each strip = black/white pattern at the LPI shown. Correct pitch: the strip flips uniformly black↔white as you tilt, with no bands. Wrong pitch: dark/light bands along the strip.`,

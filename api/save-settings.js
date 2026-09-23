@@ -25,6 +25,9 @@
 // under the "GOTHOT" label) and are set in Vercel's own environment-variable
 // UI — never committed here, never shipped to the client.
 
+// Defaulted like HANDO's copy of this function (the deployment only needs
+// GITHUB_TOKEN + DEV_PANEL_SAVE_SECRET set; GITHUB_REPO overrides this).
+const DEFAULT_REPO = 'LeisHo/LENTICULOSO';
 const DEFAULT_BRANCH = 'main';
 const DEFAULT_PATH = 'data/processed/dev-panel-settings.json';
 
@@ -36,10 +39,9 @@ module.exports = async (req, res) => {
 
     const token = process.env.GITHUB_TOKEN;
     const secret = process.env.DEV_PANEL_SAVE_SECRET;
-    const repo = process.env.GITHUB_REPO;
+    const repo = process.env.GITHUB_REPO || DEFAULT_REPO;
     const missing = [];
     if (!token) missing.push('GITHUB_TOKEN');
-    if (!repo) missing.push('GITHUB_REPO');
     if (req.method === 'POST' && !secret) missing.push('DEV_PANEL_SAVE_SECRET');
     if (missing.length) {
         res.status(500).json({ ok: false, error: `Server not configured - missing: ${missing.join(', ')}` });
@@ -73,7 +75,24 @@ module.exports = async (req, res) => {
                 return;
             }
             const getData = await getResp.json();
-            const jsonText = Buffer.from(getData.content || '', 'base64').toString('utf-8');
+            let jsonText;
+            if (getData.content) {
+                jsonText = Buffer.from(getData.content, 'base64').toString('utf-8');
+            } else if (getData.download_url) {
+                // Above ~1 MB the Contents API omits `content` and only gives
+                // `download_url` (ported from HANDO, which hit this for real on
+                // 2026-09-15: decoding the missing content as '' made every GET
+                // 500 forever). Profiles + calibration history can grow past it.
+                const rawResp = await fetch(getData.download_url, { headers: { Authorization: headers.Authorization }, cache: 'no-store' });
+                if (!rawResp.ok) {
+                    res.status(502).json({ ok: false, error: `download_url fetch failed (${rawResp.status})` });
+                    return;
+                }
+                jsonText = await rawResp.text();
+            } else {
+                res.status(500).json({ ok: false, error: 'GitHub response had neither content nor download_url' });
+                return;
+            }
             res.status(200).json({ ok: true, settings: JSON.parse(jsonText) });
         } catch (err) {
             res.status(500).json({ ok: false, error: String((err && err.message) || err) });

@@ -50,9 +50,8 @@ GITHUB_API = 'https://api.github.com'
 def _gh_config():
     return {
         'token': os.environ.get('GITHUB_TOKEN'),
-        # No default repo, matching api/save-settings.js: a wrong default
-        # would silently commit settings into some other project's repo.
-        'repo': os.environ.get('GITHUB_REPO'),
+        # Defaulted to this project's own repo, matching api/save-settings.js.
+        'repo': os.environ.get('GITHUB_REPO', 'LeisHo/LENTICULOSO'),
         'branch': os.environ.get('GITHUB_BRANCH', 'main'),
         'settings_path': os.environ.get('SETTINGS_FILE_PATH', 'data/processed/dev-panel-settings.json'),
     }

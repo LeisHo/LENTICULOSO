@@ -4,6 +4,8 @@
 // Everything runs client-side. Persistence is browser localStorage:
 //   lw.lenses       lens profiles           (core/profiles.mjs)
 //   lw.printers     printer profiles        (core/profiles.mjs)
+//   lw.papers       custom paper profiles   (core/profiles.mjs; built-in
+//                   paper/printer presets are data in core/presets.mjs)
 //   lw.calibration  calibration session     (core/profiles.mjs)
 //   lw.settings     app settings            (this file)
 //   lw.create       Create-tab settings (not images — images are never
@@ -12,13 +14,15 @@
 
 import { h, clear } from './ui/dom.mjs';
 import {
-    createProfileStore, makeLensProfile, makePrinterProfile, validateLens, validatePrinter,
+    createProfileStore, makeLensProfile, makePrinterProfile, makePaperProfile, validateLens, validatePrinter, validatePaper,
     memoryStorage, loadCalibrationState, saveCalibrationState,
 } from './core/profiles.mjs';
 import { mountCalibrate } from './ui/calibrateView.mjs';
 import { mountCreate } from './ui/createView.mjs';
 import { mountLensProfiles, mountPrinterProfiles } from './ui/profilesView.mjs';
 import { mountSettings } from './ui/settingsView.mjs';
+import { createSync } from './sync.mjs';
+import { createProjectsClient } from './ui/projectsClient.mjs';
 
 export const DEFAULT_SETTINGS = {
     defaultDpi: 600,
@@ -41,18 +45,39 @@ function safeStorage() {
 }
 
 export function createWorkbench(root) {
-    const storage = safeStorage();
+    // The app reads/writes through the sync wrapper: localStorage stays the
+    // working copy, and synced keys are mirrored to git (sync.mjs) once the
+    // host attaches its remote (src/main.js → attachRemote).
+    const sync = createSync(safeStorage());
+    const storage = sync.storage;
     const app = {
         storage,
+        sync,
+        projects: null,   // saved-projects client, set by attachRemote()
         persistent: storage !== undefined && typeof localStorage !== 'undefined' && storage === localStorage,
         lenses: createProfileStore(storage, 'lw.lenses', makeLensProfile, validateLens),
         printers: createProfileStore(storage, 'lw.printers', makePrinterProfile, validatePrinter),
+        papers: createProfileStore(storage, 'lw.papers', makePaperProfile, validatePaper),
         calibration: loadCalibrationState(storage, 'lw.calibration'),
         settings: { ...DEFAULT_SETTINGS, ...readJSON(storage, 'lw.settings') },
         saveCalibration() { saveCalibrationState(storage, 'lw.calibration', app.calibration); },
         saveSettings() { storage.setItem('lw.settings', JSON.stringify(app.settings)); emit('settings'); },
         listeners: {},
         on(evt, fn) { (app.listeners[evt] ||= []).push(fn); },
+        /** Host hook: connect the git remote, pull, and refresh if git had newer data. */
+        attachRemote(remote) {
+            if (remote.secret) { app.projects = createProjectsClient(remote.secret); emit('projects-ready'); }
+            sync.attach(remote);
+            sync.pull().then(result => {
+                if (result !== 'applied') return;
+                Object.assign(app.calibration, loadCalibrationState(storage, 'lw.calibration'));
+                Object.assign(app.settings, { ...DEFAULT_SETTINGS, ...readJSON(storage, 'lw.settings') });
+                emit('profiles');
+                emit('settings');
+                const current = Object.keys(panes).find(k => !panes[k].hidden);
+                if (current && views[current].mounted?.refresh) views[current].mounted.refresh();
+            });
+        },
         emit,
         go,
     };
@@ -68,9 +93,12 @@ export function createWorkbench(root) {
 
     const nav = h('nav.lw-nav', { 'aria-label': 'Main' });
     const main = h('main.lw-main#lwMain');
+    const syncBadge = h('span.lw-sync', { title: 'Where your profiles are saved' }, 'Saved in this browser');
+    const SYNC_TEXT = { local: 'Saved in this browser', loading: 'Loading from git…', synced: 'Synced to git ✓', saving: 'Saving to git…', error: 'Git sync failed — saved in this browser' };
+    sync.onStatus(s => { syncBadge.textContent = SYNC_TEXT[s] || s; syncBadge.dataset.state = s; });
     const header = h('header.lw-header#lwHeader',
         h('div.lw-brand', h('span.lw-logo', '▥'), h('span', 'Lenticular Workbench')),
-        nav);
+        nav, syncBadge);
     clear(root);
     root.append(header, main);
 

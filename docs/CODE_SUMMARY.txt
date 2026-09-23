@@ -24,6 +24,13 @@ FILE MAP
   baseline RGB TIFF encoder/reader.
 - `src/lenticular/core/checks.mjs` -- pre-export consistency checks,
   output geometry.
+- `src/lenticular/core/presets.mjs` -- built-in printer presets (10 Epson
+  EcoTank models, all build at 720 DPI = Epson driver native) and paper
+  presets (Epson/Canon/HP home papers + plain), each with source URLs;
+  resolvePrinter/resolvePaper ("preset:<id>" or a saved profile id),
+  Epson driver paper-type mapping.
+- `src/lenticular/ui/pickers.mjs` -- the shared printer/paper <select>s
+  (saved profiles + presets) used by Calibrate, Create and profiles.
 - `src/lenticular/core/transform.mjs` -- per-frame placement matrix (crop,
   fit, scale, rotate, flip, offset as fractions of the output).
 - `src/lenticular/app.mjs` -- shell: 5 tabs, stores on localStorage (memory
@@ -71,7 +78,7 @@ origin) → PNG/TIFF → user prints and picks → selections saved to the
 calibration session → "Save as lens profile" writes effectiveLpi +
 history.
 
-Persistence keys (localStorage): lw.lenses, lw.printers, lw.calibration,
+Persistence keys (localStorage): lw.lenses, lw.printers, lw.papers, lw.calibration,
 lw.settings, lw.create, lw.tab. Images are never persisted.
 
 --------------------------------------------------------------------------------

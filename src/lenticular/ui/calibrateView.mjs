@@ -12,6 +12,8 @@ import { lpiToPitchMm, pixelsPerLenticule, lpiDeltaFromBands } from '../core/uni
 import { injectPngPhys, encodeTiff } from '../core/encode.mjs';
 import { makeLensProfile } from '../core/profiles.mjs';
 import { renderCalibrationSheet } from './sheetRender.mjs';
+import { printerSelect, paperSelect, suitabilityText } from './pickers.mjs';
+import { resolvePrinter, resolvePaper, nativeDpiOf } from '../core/presets.mjs';
 
 const SHEET_PRESETS = [
     ['a4p', 'A4 portrait, 10 mm margins (190 × 277 mm)', 190, 277],
@@ -63,7 +65,6 @@ export function mountCalibrate(root, app) {
 
     // ------------------------------------------------------------- 1 settings
     function stepSettings() {
-        const printers = app.printers.list();
         const derived = h('div.derived');
         const updateDerived = () => {
             clear(derived);
@@ -72,7 +73,13 @@ export function mountCalibrate(root, app) {
                 cands = coarseCandidates(st.minLpi, st.maxLpi, st.coarseStep);
                 lay = layoutSheet({ widthMm: st.widthMm, heightMm: st.heightMm, dpi: st.dpi, orientation: st.orientation, values: cands, decimals: decimalsOf(st.coarseStep) });
             } catch (e) { err = e.message; }
+            const printer = resolvePrinter(st.printerProfileId, app.printers);
+            const native = nativeDpiOf(printer);
+            const paper = resolvePaper(st.paperId, app.papers);
             add(derived,
+                native && !native.includes(st.dpi) ? h('p.warn', `${printer.name}: the driver works at ${native.join(' / ')} DPI, so ${st.dpi} DPI would be resampled and the test strips smeared. Use ${Math.max(...native)}.`) : null,
+                paper && paper.lenticular === 'poor' ? h('p.warn', 'Plain paper blurs the test strips and can stretch under ink — use the photo paper you will print on.') : null,
+                paper ? row('Paper', suitabilityText(paper)) : null,
                 row('Nominal pitch', `${fmt(lpiToPitchMm(st.nominalLpi), 5)} mm (${fmt(1 / st.nominalLpi, 6)} in)`),
                 row('Printer pixels per lenticule', `${fmt(pixelsPerLenticule(st.dpi, st.nominalLpi), 4)} px at nominal (fractional is fine — nothing is rounded)`),
                 cands ? row('Candidates', `${cands.length}: ${cands[0]} … ${cands[cands.length - 1]} LPI`) : null,
@@ -91,7 +98,7 @@ export function mountCalibrate(root, app) {
             h('p.muted', 'Defaults suit a 100 LPI lens. They are editable because every lens and printer is different.'),
             h('div.grid2',
                 numberField('Nominal LPI (seller)', st.nominalLpi, { unit: 'LPI', help: 'lpi', onInput: upd('nominalLpi') }).el,
-                printerOrDpi(printers),
+                printerOrDpi(),
                 commit(numberField('Minimum test LPI', st.minLpi, { unit: 'LPI', onInput: upd('minLpi') })),
                 commit(numberField('Maximum test LPI', st.maxLpi, { unit: 'LPI', onInput: upd('maxLpi') })),
                 commit(numberField('Coarse increment', st.coarseStep, { unit: 'LPI', min: 0.0001, onInput: upd('coarseStep') })),
@@ -110,18 +117,22 @@ export function mountCalibrate(root, app) {
         updateDerived();
         return card;
 
-        function printerOrDpi(list) {
+        function printerOrDpi() {
             const wrap = h('div');
-            const dpiF = numberField('Printer DPI / PPI', st.dpi, { unit: 'DPI', min: 50, help: 'dpi', onInput: v => { if (v) { st.dpi = v; st.printerProfileId = null; sel.input.value = ''; save(); updateDerived(); } } });
-            const sel = selectField('Printer profile', st.printerProfileId || '', [['', '— none (enter DPI) —'], ...list.map(p => [p.id, `${p.name} (${p.dpi} DPI)`])], {
+            // Typing a DPI keeps the chosen printer (so its native-resolution
+            // warning can still fire); picking a printer sets its DPI.
+            const dpiF = numberField('Printer DPI / PPI', st.dpi, { unit: 'DPI', min: 50, help: 'dpi', onInput: v => { if (v) { st.dpi = v; save(); updateDerived(); } } });
+            const sel = printerSelect(app, st.printerProfileId, {
+                label: 'Printer',
                 onChange: v => {
                     st.printerProfileId = v || null;
-                    const p = v && app.printers.get(v);
+                    const p = resolvePrinter(v, app.printers);
                     if (p) { st.dpi = p.dpi; dpiF.input.value = p.dpi; }
                     save(); updateDerived();
                 },
             });
-            wrap.append(sel.el, dpiF.el);
+            const paperSel = paperSelect(app, st.paperId, { label: 'Paper you will print on', onChange: v => { st.paperId = v || null; save(); updateDerived(); } });
+            wrap.append(sel.el, dpiF.el, paperSel.el);
             return wrap;
         }
     }
@@ -152,7 +163,8 @@ export function mountCalibrate(root, app) {
     }
 
     function buildSheet(kind) {
-        const printer = st.printerProfileId && app.printers.get(st.printerProfileId);
+        const printer = resolvePrinter(st.printerProfileId, app.printers);
+        const paper = resolvePaper(st.paperId, app.papers);
         let values, decimals, lpi;
         if (kind === 'coarse') {
             values = coarseCandidates(st.minLpi, st.maxLpi, st.coarseStep);
@@ -171,7 +183,7 @@ export function mountCalibrate(root, app) {
         const { canvas, layout } = renderCalibrationSheet({
             kind: kind === 'phase' ? 'phase' : 'pitch', values, decimals, lpi,
             widthMm: st.widthMm, heightMm: st.heightMm, dpi: st.dpi, orientation: st.orientation,
-            printerName: printer ? printer.name : '',
+            printerName: [printer?.name, paper?.name].filter(Boolean).join(' · '),
             title: kind === 'coarse' ? 'Lenticular PITCH test — COARSE' : kind === 'fine' ? `Lenticular PITCH test — FINE around ${st.coarseSelected}` : undefined,
         });
         return { canvas, layout, values, decimals, kind, dpi: st.dpi };
@@ -343,7 +355,8 @@ export function mountCalibrate(root, app) {
         newBox.hidden = target !== '__new';
         const btn = h('button.primary', { type: 'button', disabled: !r }, r ? `Save ${r.value} LPI to lens profile` : 'Nothing measured yet');
         btn.addEventListener('click', () => {
-            const printer = st.printerProfileId && app.printers.get(st.printerProfileId);
+            const printer = resolvePrinter(st.printerProfileId, app.printers);
+            const paper = resolvePaper(st.paperId, app.papers);
             const history = {
                 date: new Date().toISOString(),
                 stage: r.stage,
@@ -353,7 +366,7 @@ export function mountCalibrate(root, app) {
                 phase: st.phaseSelected,
                 bandCount: st.bandCount,
                 dpi: st.dpi, sheetMm: [st.widthMm, st.heightMm], orientation: st.orientation,
-                printerProfileId: printer?.id || null, notes: notesF.input.value,
+                printerProfileId: printer?.id || null, printerName: printer?.name || '', paperId: paper?.id || null, paperName: paper?.name || '', notes: notesF.input.value,
             };
             const base = target === '__new'
                 ? makeLensProfile({ name: nameF.input.value || 'My lens', nominalLpi: st.nominalLpi, material: matF.input.value, thicknessUm: Number(thickF.input.value) || null, widthMm: Number(wF.input.value) || null, heightMm: Number(hF.input.value) || null })
@@ -365,7 +378,7 @@ export function mountCalibrate(root, app) {
                 calibrationStatus: r.stage,
                 orientation: st.orientation,
                 phase: st.phaseSelected ?? base.phase ?? 0,
-                calibratedWith: { printerProfileId: printer?.id || null, printerName: printer?.name || '', dpi: st.dpi },
+                calibratedWith: { printerProfileId: printer?.id || null, printerName: printer?.name || '', dpi: st.dpi, paperId: paper?.id || null, paperName: paper?.name || '' },
                 calibrationHistory: [...(base.calibrationHistory || []), history],
                 notes: [base.notes, notesF.input.value].filter(Boolean).join('\n'),
             });

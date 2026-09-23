@@ -127,5 +127,6 @@ function drawTestFrame(ctx, f, W, H) {
 /** Load a File into a frame source (ImageBitmap + natural size). */
 export async function loadImageFile(file) {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    return { kind: 'image', bitmap, width: bitmap.width, height: bitmap.height, name: file.name };
+    // `file` is kept so a saved project can store the ORIGINAL bytes, not a re-encode.
+    return { kind: 'image', bitmap, width: bitmap.width, height: bitmap.height, name: file.name, file };
 }
