@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "id": "claude-test-project-delete-me-mudsinp9",
+  "name": "Claude test project (delete me)",
+  "createdAt": "2026-09-23T07:37:35.092Z",
+  "create": {
+    "lensId": "",
+    "printerId": "",
+    "paperId": "",
+    "manualLpi": 100,
+    "manualDpi": 600,
+    "orientation": "vertical",
+    "sizePreset": "6x4l",
+    "widthMm": 152.4,
+    "heightMm": 101.6,
+    "units": "in",
+    "sequenceMode": "loop",
+    "boundary": "nearest",
+    "sampling": "lenticule",
+    "useProfilePhase": false,
+    "headOn": "middle",
+    "phaseShift": 0
+  },
+  "snapshot": {
+    "lens": null,
+    "printer": null,
+    "paper": null,
+    "lpi": 100,
+    "dpi": 600,
+    "phase": 0,
+    "orientation": "vertical",
+    "sequence": [
+      0,
+      1,
+      2
+    ]
+  },
+  "frames": [
+    {
+      "kind": "test",
+      "name": "Test 1 (ONE)",
+      "index": 0,
+      "total": 2,
+      "label": "ONE"
+    },
+    {
+      "kind": "test",
+      "name": "Test 2 (TWO)",
+      "index": 1,
+      "total": 2,
+      "label": "TWO"
+    },
+    {
+      "kind": "image",
+      "name": "noise-test.png",
+      "mime": "image/png",
+      "size": 3897722,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "scale": 1,
+        "rotation": 0,
+        "fit": "cover",
+        "flipH": false,
+        "flipV": false,
+        "crop": {
+          "left": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0
+        }
+      },
+      "chunks": [
+        {
+          "path": "source-02.png.000",
+          "sha": "c0a7d15b67226d2693c58ba440e7cb8772fe2142"
+        },
+        {
+          "path": "source-02.png.001",
+          "sha": "21b70a20cf4ce71a570060013859153adefdf3d6"
+        }
+      ]
+    }
+  ],
+  "output": {
+    "mime": "image/png",
+    "size": 8247152,
+    "widthPx": 3600,
+    "heightPx": 2400,
+    "dpi": 600,
+    "chunks": [
+      {
+        "path": "output.png.000",
+        "sha": "fe5083eb6f59471a77ef13df9146d808741f879f"
+      },
+      {
+        "path": "output.png.001",
+        "sha": "17294d4f1e2a45f3814d93e91889f2308e77955f"
+      },
+      {
+        "path": "output.png.002",
+        "sha": "b611255edc599c1f90920bfabbf9c328892a2f12"
+      },
+      {
+        "path": "output.png.003",
+        "sha": "46072743217c6866fdf5ef7a34c3359131303e02"
+      }
+    ]
+  }
+}
