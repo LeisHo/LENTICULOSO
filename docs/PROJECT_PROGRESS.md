@@ -22,11 +22,13 @@ Nothing in progress — see What's next.
 
 ## Recently completed
 
-- Lenticular Workbench v1 (2026-09-23): Calibrate / Create / Lens Profiles /
-  Printer Profiles / Settings, mounted in the workspace scaffold (dev panel +
-  UI Layout Engine). 21 node tests pass. The full workflow was exercised in
-  the browser, and the exported PNG was verified pixel-exact.
-- The folder was reset from its FONTSO copy into a blank scaffold first.
+- Git-backed saving on https://lenticuloso.vercel.app (2026-09-23): dev
+  panel, lens/printer/paper profiles, calibration and settings sync to
+  `data/processed/dev-panel-settings.json`; saved projects (generated PNG +
+  original sources + settings) in `data/projects/`. Verified live: sync,
+  save 11.58 MB project in 6 pieces, reopen after reload, delete.
+- Epson EcoTank printer presets (720 DPI) and Epson/Canon/HP paper presets.
+- Lenticular Workbench v1: Calibrate / Create / profiles / settings, 35 tests.
 
 ## What's next
 
@@ -41,6 +43,10 @@ Nothing in progress — see What's next.
    slow.
 
 ## Open questions / blockers
+
+- The user said they will make the GitHub repo private (saved photos).
+  The deployed site itself is still open to anyone with the URL unless
+  Vercel Deployment Protection is enabled — user's call.
 
 - Whether the optical-inversion default (A seen from the left) matches the
   user's lens and viewing habit. It can only be confirmed on a real print.

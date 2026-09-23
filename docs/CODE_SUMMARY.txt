@@ -33,6 +33,14 @@ FILE MAP
   (saved profiles + presets) used by Calibrate, Create and profiles.
 - `src/lenticular/core/transform.mjs` -- per-frame placement matrix (crop,
   fit, scale, rotate, flip, offset as fractions of the output).
+- `src/lenticular/sync.mjs` -- mirrors the synced localStorage keys
+  (lens/printer/paper profiles, calibration, settings) into the git
+  settings file under key "workbench"; debounced; git wins on startup
+  unless the user already edited locally.
+- `src/lenticular/core/projects.mjs` + `ui/projectsClient.mjs` +
+  `api/projects.js` -- saved projects: PNG + original sources + settings
+  under data/projects/<id>/, as <=2.5 MB git blobs committed in ONE commit
+  per save (Vercel's 4.5 MB request cap forces the chunking).
 - `src/lenticular/app.mjs` -- shell: 5 tabs, stores on localStorage (memory
   fallback), settings, a tiny event bus; exposes window.lenticularWorkbench.
 - `src/lenticular/ui/dom.mjs` -- h()/add() helpers, glossary + "?" help,
@@ -78,8 +86,13 @@ origin) → PNG/TIFF → user prints and picks → selections saved to the
 calibration session → "Save as lens profile" writes effectiveLpi +
 history.
 
-Persistence keys (localStorage): lw.lenses, lw.printers, lw.papers, lw.calibration,
-lw.settings, lw.create, lw.tab. Images are never persisted.
+Persistence: localStorage is the working copy (lw.lenses, lw.printers,
+lw.papers, lw.calibration, lw.settings, lw.create, lw.tab). The first five
+are mirrored to git (data/processed/dev-panel-settings.json → "workbench"),
+alongside "devPanel" and "uiLayoutConfig"; all writes to that file go
+through ONE serialised GET-merge-POST queue in src/main.js. Saved projects
+(images) live in data/projects/. vercel.json's ignoreCommand skips
+rebuilds for commits that only touch data/processed or data/projects.
 
 --------------------------------------------------------------------------------
 UNTOUCHABLE SYSTEMS
@@ -101,3 +114,9 @@ GOTCHAS
 - A document-wide query for `.orient-btn` hits the hidden Calibrate pane
   first; scope DOM queries to the pane (`[data-pane=create]`) in tests.
 - The dev panel auto-opens on localhost and can sit over the app; press D.
+- The shared save secret is in src/main.js by design (HANDO/CLICKO do the
+  same): it only stops casual commit spam. It is NOT access control — any
+  visitor to the deployed site can load saved projects.
+- remoteGetSettings() returns null for both "nothing saved" and "failed";
+  sync uses the throwing remoteGetSettingsStrict() so the badge never
+  claims "synced" when git was not reached.

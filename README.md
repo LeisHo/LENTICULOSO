@@ -77,14 +77,24 @@ LENTICULOSO/
 └── api/save-settings.js       optional git-tracked dev-panel settings (inert until configured)
 ```
 
-## Optional: git-tracked dev-panel settings (workspace CLAUDE.md §12l)
+## Saving to git (deployed site)
 
-`localStorage` is the default and needs no setup. The optional
-write-through needs `GITHUB_TOKEN`, `DEV_PANEL_SAVE_SECRET` and
-`GITHUB_REPO` set in the server environment, plus the matching secret in
-`src/main.js`. The Workbench's own lens/printer profiles are always
-local-only (browser storage plus JSON export/import); they never use this
-endpoint.
+On the Vercel deployment (<https://lenticuloso.vercel.app>), with
+`GITHUB_TOKEN` and `DEV_PANEL_SAVE_SECRET` set in the Vercel project:
+
+- **Dev panel** Sync / Set Default save to `data/processed/dev-panel-settings.json`.
+- **Profiles** (lens, printer, paper), the calibration session and app
+  settings save to the same file automatically (header shows the state).
+- **Saved projects** (Create → "Save project") store the generated PNG,
+  the original source images and the settings in `data/projects/<id>/`.
+
+`GITHUB_REPO` defaults to `LeisHo/LENTICULOSO`. Locally, without a token,
+everything still works in browser storage and the header says so.
+
+**Privacy:** the save secret is in the page source (as in HANDO), so it only
+stops casual spam. Anyone who can open the site can open saved projects.
+Making the repo private hides the files on GitHub; to hide the site too,
+enable Vercel Deployment Protection (password or Vercel login).
 
 ## Known limitations
 

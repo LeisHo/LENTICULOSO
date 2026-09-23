@@ -143,6 +143,35 @@ Verified:
 Correction to the entry above: its time range "03:04 AM - 03:20 AM" is
 wrong. The measured finish was 03:11:54 AM (03:04:38 → 03:11:54 = 7m16s).
 
+--------------------------------------------------------------------------------
+2026-09-23  -  03:12 AM - 03:40 AM
+
+Git-backed saving on the Vercel deployment, per request (modelled on
+HANDO's /api/save-settings pattern).
+
+Added / changed:
+- api/save-settings.js: GITHUB_REPO defaults to LeisHo/LENTICULOSO (the
+  live site reported "missing: GITHUB_REPO"); >1 MB read fallback ported
+  from HANDO.
+- src/main.js: workspace-shared client save secret; one serialised
+  GET-merge-POST queue for every writer; saveDevPanelSettings() wrapped so
+  Sync AND Set Default write to git; the git copy is cached locally so
+  Reset restores it.
+- src/lenticular/sync.mjs: profiles/papers/calibration/settings mirrored
+  under key "workbench"; header sync badge (never claims "synced" if git
+  was unreachable).
+- Saved projects: api/projects.js (Git Data API, <=2.5 MB blobs, one
+  commit per save, delete), projectsClient, Create UI (Save project, list
+  with thumbnails, Open restores frames + settings + output, Download,
+  Delete). Source images keep their original bytes.
+- vercel.json ignoreCommand: data-only commits don't rebuild.
+- Tests: sync (5) and projects (3, end-to-end against a fake GitHub); 35 pass.
+
+Decisions (user): git storage chunked; user will make the repo private;
+push when done. Noted to the user: the client secret is not access
+control; the deployed site itself stays public unless Vercel Deployment
+Protection is enabled.
+
 ================================================================================
 APPEND-ONLY. Never rewrite, reorder, or delete a prior entry, even to fix
 formatting (CLAUDE.md §4a / Never-Skip rule #3). If an entry needs a

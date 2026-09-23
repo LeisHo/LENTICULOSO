@@ -123,6 +123,14 @@ scaffold; the ones marked "Hit here" happened in this project.
   navigation before assuming the code regressed.
 - **`javascript_tool` eval can't see module top-level declarations.**
   Drive the real UI, or patch a real global, to test host logic.
+- **The live site commits to `main` on its own.** Every dev-panel Sync,
+  profile change and saved project is a commit made by the Vercel
+  function. Always `git pull --ff-only` before committing locally, or the
+  push is rejected. Those data-only commits don't trigger a rebuild
+  (`vercel.json` `ignoreCommand`). (Hit here, 2026-09-23.)
+- **The save secret in `src/main.js` is not access control.** It is the
+  workspace-shared anti-spam token (same as HANDO/CLICKO). Anyone who can
+  open the site can load saved projects.
 - **Native `Element.append(null)` prints "null".** In `src/lenticular/`,
   build DOM with `h()`/`add()` from `ui/dom.mjs`, which skip null/false.
   (Hit here, 2026-09-23.)
