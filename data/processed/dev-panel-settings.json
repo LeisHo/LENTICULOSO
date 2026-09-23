@@ -1,7 +1,7 @@
 {
   "workbench": {
     "version": 1,
-    "savedAt": "2026-09-23T07:36:42.319Z",
+    "savedAt": "2026-09-23T07:37:45.124Z",
     "data": {
       "lw.printers": [
         {
@@ -21,7 +21,15 @@
           "createdAt": "2026-09-23T07:36:39.591Z",
           "updatedAt": "2026-09-23T07:36:39.808Z"
         }
-      ]
+      ],
+      "lw.settings": {
+        "defaultDpi": 600,
+        "editorMaxPx": 720,
+        "previewMaxPx": 720,
+        "ghostOpacity": 50,
+        "previewGrid": false,
+        "previewSnap": true
+      }
     }
   },
   "devPanel": {
