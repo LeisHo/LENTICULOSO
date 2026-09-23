@@ -32,7 +32,9 @@ Nothing in progress — see What's next.
 
 ## What's next
 
-1. The user prints the coarse calibration sheet (A4, 600 DPI, 100% scale)
+1. The user prints the coarse calibration sheet (A4, at the printer's native
+   DPI — 720 for an Epson EcoTank preset — on the photo paper they will use,
+   100% scale)
    and runs the real calibrate → refine workflow on the 100 LPI PET lens.
 2. Print a 3-frame test-image interlace with the calibrated profile and
    confirm: (a) the frames switch, (b) the direction (use Reverse if not),
