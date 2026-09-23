@@ -7,20 +7,30 @@ import * as S from '../src/lenticular/core/presets.mjs';
 import * as P from '../src/lenticular/core/profiles.mjs';
 import * as K from '../src/lenticular/core/checks.mjs';
 
-test('printer presets: Epson EcoTank, unique ids, build at 720 DPI, sourced', () => {
+test('printer presets: Epson/Canon/HP home models, unique ids, build at each driver native DPI, sourced', () => {
     const ids = new Set();
+    const NATIVE = { Epson: [720, [360, 720]], Canon: [600, [300, 600]], HP: [600, [300, 600, 1200]] };
     for (const p of S.PRINTER_PRESETS) {
         assert.ok(!ids.has(p.id), 'duplicate id ' + p.id); ids.add(p.id);
-        assert.equal(p.brand, 'Epson');
-        assert.match(p.model, /EcoTank/);
-        assert.equal(p.dpi, 720, p.id + ' must build at the Epson native 720');
-        assert.deepEqual(p.nativeDpi, [360, 720]);
-        assert.ok(p.sources.length >= 1 && p.sources.every(u => /^https:\/\//.test(u)));
+        assert.ok(NATIVE[p.brand], 'unknown brand ' + p.brand);
+        assert.equal(p.dpi, NATIVE[p.brand][0], p.id + ' build DPI');
+        assert.deepEqual(p.nativeDpi, NATIVE[p.brand][1], p.id + ' native list');
+        assert.ok(p.nativeDpi.includes(p.dpi));
+        assert.ok(p.sources.length >= 1 && p.sources.every(u => /^https?:\/\//.test(u)));
+        assert.ok(typeof p.notes === 'string' && p.notes.length > 20);
     }
-    assert.ok(S.PRINTER_PRESETS.length >= 8);
+    const count = b => S.PRINTER_PRESETS.filter(p => p.brand === b).length;
+    assert.equal(count('Epson'), 20);
+    assert.equal(count('Canon'), 10);
+    assert.equal(count('HP'), 10);
+    assert.deepEqual(S.PRINTER_BRANDS, ['Epson', 'Canon', 'HP']);
 });
 
 test('paper presets: Epson/Canon/HP + plain, valid fields, no guessed numbers', () => {
+    const ids = S.PAPER_PRESETS.map(p => p.id);
+    assert.equal(new Set(ids).size, ids.length, 'duplicate paper id');
+    for (const b of ['Epson', 'Canon']) assert.equal(S.PAPER_PRESETS.filter(p => p.brand === b).length, 14, b);
+    assert.equal(S.PAPER_PRESETS.filter(p => p.brand === 'HP').length, 13);
     const brands = new Set(S.PAPER_PRESETS.map(p => p.brand));
     for (const b of ['Epson', 'Canon', 'HP']) assert.ok(brands.has(b), 'missing ' + b);
     for (const p of S.PAPER_PRESETS) {
@@ -60,6 +70,16 @@ test('resolvePrinter / resolvePaper: presets and saved profiles', () => {
     const custom = papers.save(P.makePaperProfile({ name: 'Odd paper', finish: 'matte', gsm: 190 }));
     assert.equal(S.resolvePaper(custom.id, papers).lenticular, 'fair');
     assert.throws(() => papers.save(P.makePaperProfile({ name: 'Bad', gsm: -3 })), /Weight/);
+});
+
+test('driver paper-type mapping per printer brand', () => {
+    const g = id => S.PAPER_PRESETS.find(p => p.id === id);
+    assert.equal(S.driverSettingFor(g('canon-pt101'), 'Canon'), 'Canon Photo Paper Pro Platinum (PT-101)');
+    assert.equal(S.driverSettingFor(g('epson-premium-glossy'), 'HP'), 'HP Advanced Photo Papers (closest match)');
+    assert.equal(S.driverSettingFor(g('hp-multipurpose20'), 'Canon'), 'Plain Paper');
+    assert.equal(S.printerBrandOf(S.resolvePrinter('preset:canon-pro-200')), 'Canon');
+    assert.equal(S.printerBrandOf({ name: 'My HP ENVY' }), 'HP');
+    assert.equal(S.resolvePrinter('preset:hp-envy-6055e').dpi, 600);
 });
 
 test('Epson driver paper-type mapping', () => {

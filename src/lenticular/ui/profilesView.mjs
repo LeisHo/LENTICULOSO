@@ -7,7 +7,7 @@
 
 import { h, clear, numberField, textField, selectField, groupedSelectField, orientationPicker, downloadBytes, toast, helpTip, fmt } from './dom.mjs';
 import { makeLensProfile, makePrinterProfile, makePaperProfile } from '../core/profiles.mjs';
-import { PRINTER_PRESETS, PAPER_PRESETS, LENTICULAR_SUITABILITY, epsonDriverSettingFor, thicknessUm } from '../core/presets.mjs';
+import { PRINTER_PRESETS, PAPER_PRESETS, LENTICULAR_SUITABILITY, PRINTER_BRANDS, driverSettingFor, thicknessUm } from '../core/presets.mjs';
 import { lpiToPitchMm } from '../core/units.mjs';
 
 export function mountLensProfiles(root, app) {
@@ -179,7 +179,7 @@ function printerEditor(d) {
     const set = k => v => { d[k] = v; };
     const fromPreset = groupedSelectField('Start from preset', d.presetId || '', [
         [null, [['', '— none —']]],
-        ['Epson EcoTank', PRINTER_PRESETS.map(p => [p.id, `${p.brand} ${p.model}`])],
+        ...PRINTER_BRANDS.map(b => [b, PRINTER_PRESETS.filter(p => p.brand === b).map(p => [p.id, `${p.brand} ${p.model}`])]),
     ], {
         onChange: v => {
             const p = PRINTER_PRESETS.find(x => x.id === v);
@@ -223,7 +223,7 @@ function paperEditor(d) {
         numberField('Weight', d.gsm, { unit: 'g/m²', min: 1, onInput: set('gsm') }).el,
         numberField('Thickness', d.thicknessMil, { unit: 'mil', min: 0.1, step: 0.1, onInput: set('thicknessMil') }).el,
         selectField('Lenticular suitability', d.lenticular, Object.entries(LENTICULAR_SUITABILITY), { help: 'paper', onChange: set('lenticular') }).el,
-        textField('Driver paper-type setting', d.driverSetting, { onInput: set('driverSetting'), placeholder: epsonDriverSettingFor(d) || 'as named in your printer driver' }).el,
+        textField('Driver paper-type setting', d.driverSetting, { onInput: set('driverSetting'), placeholder: driverSettingFor(d, d.brand || 'Epson') || 'as named in your printer driver' }).el,
         textField('Notes', d.notes, { onInput: set('notes') }).el,
     ));
 }
@@ -234,8 +234,8 @@ function sourceLinks(urls) {
 }
 
 function printerPresetTable() {
-    return h('details.card', h('summary', h('h2', `Built-in printer presets (${PRINTER_PRESETS.length} Epson EcoTank models)`)),
-        h('p.muted.small', 'All Epson presets build images at 720 DPI: Epson drivers accept image data at 720 ppi (360 in lower-quality modes) and resample anything else, which would smear the lenticular strips. Blank cells were not found in the sources and are left blank rather than guessed.'),
+    return h('details.card', h('summary', h('h2', `Built-in printer presets (${PRINTER_PRESETS.length}: ${PRINTER_BRANDS.map(b => `${PRINTER_PRESETS.filter(p => p.brand === b).length} ${b}`).join(', ')})`)),
+        h('p.muted.small', 'Epson presets build images at 720 DPI and Canon/HP presets at 600 DPI — the resolution each brand\u2019s driver takes image data at. Anything else gets resampled by the driver, which smears the lenticular strips. Blank cells were not found in the sources and are left blank rather than guessed.'),
         h('div.table-wrap', h('table.ref-table',
             h('thead', h('tr', ['Model', 'Build at', 'Max print res.', 'Max sheet', 'Borderless', 'Ink', 'Source'].map(t => h('th', t)))),
             h('tbody', PRINTER_PRESETS.map(p => h('tr',
@@ -247,12 +247,13 @@ function paperPresetTable() {
     return h('details.card', h('summary', h('h2', `Built-in papers (${PAPER_PRESETS.length})`)),
         h('p.muted.small', 'Weights and thicknesses are the manufacturers’ published figures (blank = not found). Thickness does not affect the lens optics (the lens focuses on its own back surface) but matters for feeding and lamination. Suitability ratings are this app’s judgement from the coating type.'),
         h('div.table-wrap', h('table.ref-table',
-            h('thead', h('tr', ['Brand', 'Paper', 'Finish', 'Weight', 'Thickness', 'Lenticular', 'Epson driver setting', 'Source'].map(t => h('th', t)))),
+            h('thead', h('tr', ['Brand', 'Paper', 'Finish', 'Weight', 'Thickness', 'Lenticular', 'On an Epson printer', 'On a Canon printer', 'On an HP printer', 'Source'].map(t => h('th', t)))),
             h('tbody', PAPER_PRESETS.map(p => h('tr',
-                h('td', p.brand), h('td', p.model), h('td', p.finish), h('td', p.gsm ? `${p.gsm} g/m²` : ''),
+                h('td', p.brand), h('td', p.model, p.notes ? h('div.muted.small', p.notes) : null), h('td', p.finish), h('td', p.gsm ? `${p.gsm} g/m²` : ''),
                 h('td', p.thicknessMil ? `${p.thicknessMil} mil (${thicknessUm(p)} µm)` : ''),
                 h('td', LENTICULAR_SUITABILITY[p.lenticular].split(' —')[0]),
-                h('td', epsonDriverSettingFor(p) || ''), h('td', sourceLinks(p.sources))))))));
+                h('td', driverSettingFor(p, 'Epson') || ''), h('td', driverSettingFor(p, 'Canon') || ''), h('td', driverSettingFor(p, 'HP') || ''),
+                h('td', sourceLinks(p.sources))))))));
 }
 
 function statusText(d) {

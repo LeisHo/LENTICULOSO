@@ -53,8 +53,9 @@ CURRENT STATE
   exported 3600 × 2400 PNG carries pHYs = 23,622 px/m and matched an
   independent re-computation with 0 differing bytes; TIFF reads back
   600 DPI.
-- Printer presets (10 Epson EcoTank models, build at 720 DPI) and paper
-  presets (4 Epson, 4 Canon, 4 HP, plain) in every printer/paper menu;
+- Printer presets (40: 20 Epson, 10 Canon, 10 HP; build at 720 / 600 /
+  600 DPI) and paper presets (42: 14 Epson, 14 Canon, 13 HP, 1 plain) in
+  every printer/paper menu, grouped by brand;
   custom papers; paper recorded in lens calibrations; native-DPI, paper
   and calibration-paper-mismatch warnings. 27 node tests pass.
 - Dev panel: "Workbench Display" group (5 controls); its Mobile/Landscape

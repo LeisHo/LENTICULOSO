@@ -172,6 +172,36 @@ push when done. Noted to the user: the client secret is not access
 control; the deployed site itself stays public unless Vercel Deployment
 Protection is enabled.
 
+--------------------------------------------------------------------------------
+2026-09-23  -  04:00 AM - 04:13 AM
+
+More printer and paper presets, per request ("10 more per brand, home use").
+
+Research: 3 parallel web-research agents (Epson, Canon, HP). Epson and HP
+figures came from the makers' spec-sheet/datasheet PDFs; Canon's product
+pages refused direct access, so Canon figures came from search results
+pointing at them (said so in each Canon preset's note). Conflicting
+figures were left blank rather than picked (e.g. Epson Ultra Premium
+Glossy weight 297 vs 305 g/m²).
+
+Added:
+- Printers: +10 Epson (ET-2980, ET-3830, ET-4950, ET-7750, XP-4200, XP-5200,
+  XP-8700, XP-15000, SureColor P700, P900), 10 Canon (G620, G3270, G4270,
+  G6020, G7020, TS6420a, TS8820, TS9521C, PRO-200, PRO-300), 10 HP (ENVY
+  6055e, 6455e, Inspire 7955e, Photo 7855, Smart Tank 7602, 7301, Plus
+  651, OfficeJet Pro 8025e, 9015e, DeskJet 2755e). Canon build at 600
+  (native 300/600, practitioner-reported); HP build at 600 (HP publishes
+  only "1200 input dpi" for max-dpi mode; 300/600/1200 accepted).
+- Papers: +10 Epson, +10 Canon, +9 HP (HP Premium Plus Satin dropped:
+  13x19 only, likely discontinued). Everyday text papers included per brand.
+- Menus grouped by brand; driver paper-type hint now for Epson, Canon and
+  HP printers (closest own-brand media by finish, INFERRED).
+- Tests updated (36 pass).
+
+Verified: local browser — menus 20/10/10 printers, 14/14/13/1 papers;
+Canon PRO-200 → 600 DPI; checklist driver hint; tables 40/42 rows; no
+console errors. Test data cleared.
+
 ================================================================================
 APPEND-ONLY. Never rewrite, reorder, or delete a prior entry, even to fix
 formatting (CLAUDE.md §4a / Never-Skip rule #3). If an entry needs a

@@ -24,11 +24,12 @@ FILE MAP
   baseline RGB TIFF encoder/reader.
 - `src/lenticular/core/checks.mjs` -- pre-export consistency checks,
   output geometry.
-- `src/lenticular/core/presets.mjs` -- built-in printer presets (10 Epson
-  EcoTank models, all build at 720 DPI = Epson driver native) and paper
-  presets (Epson/Canon/HP home papers + plain), each with source URLs;
+- `src/lenticular/core/presets.mjs` -- built-in printer presets (40: 20
+  Epson, 10 Canon, 10 HP home/prosumer models; build at the driver's
+  native input: Epson 720, Canon/HP 600) and paper presets (42: 14 Epson,
+  14 Canon, 13 HP, 1 plain), each with source URLs and caveat notes;
   resolvePrinter/resolvePaper ("preset:<id>" or a saved profile id),
-  Epson driver paper-type mapping.
+  driverSettingFor(paper, printerBrand) closest-media mapping.
 - `src/lenticular/ui/pickers.mjs` -- the shared printer/paper <select>s
   (saved profiles + presets) used by Calibrate, Create and profiles.
 - `src/lenticular/core/transform.mjs` -- per-frame placement matrix (crop,

@@ -15,7 +15,7 @@ import { cloneTransform } from '../core/transform.mjs';
 import { drawFrame, renderFrameRGBA, makeTestFrames, loadImageFile } from './frameRender.mjs';
 import { printerSelect, paperSelect, suitabilityText } from './pickers.mjs';
 import { projectId, sourcePrefix, formatBytes, PROJECT_VERSION } from '../core/projects.mjs';
-import { resolvePrinter, resolvePaper, nativeDpiOf, epsonDriverSettingFor, thicknessUm } from '../core/presets.mjs';
+import { resolvePrinter, resolvePaper, nativeDpiOf, driverSettingFor, printerBrandOf, thicknessUm } from '../core/presets.mjs';
 
 const SIZE_PRESETS = [
     ['6x4l', '6 × 4 in (landscape)', 152.4, 101.6],
@@ -716,7 +716,7 @@ export function mountCreate(root, app) {
                 item(!p.lens || p.lens.orientation === q.orientation, 'Lens orientation', q.orientation === 'vertical' ? 'Vertical ridges ▥' : 'Horizontal ridges ▤'),
                 item(true, 'Printer DPI/PPI', `${q.dpi}${q.printer ? ' — ' + q.printer : ''}`),
                 item(!!p.paper && p.paper.lenticular !== 'poor', 'Paper', p.paper ? `${p.paper.name} — ${suitabilityText(p.paper)}` : 'not specified'),
-                p.paper && p.printer && p.printer.brand !== 'HP' && /epson/i.test(p.printer.name) ? item(true, 'Driver paper type', epsonDriverSettingFor(p.paper) || '—') : null,
+                p.paper && printerBrandOf(p.printer) ? item(true, 'Driver paper type', driverSettingFor(p.paper, printerBrandOf(p.printer)) || '—') : null,
                 item(true, 'Physical output', `${fmt(c.widthMm, 2)} × ${fmt(c.heightMm, 2)} mm (${fmt(mmToIn(c.widthMm), 3)} × ${fmt(mmToIn(c.heightMm), 3)} in)`),
                 item(true, 'Pixel dimensions', `${q.widthPx} × ${q.heightPx} px`),
                 confirm('scale100', 'I will print at 100% / Actual Size'),

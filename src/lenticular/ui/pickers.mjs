@@ -8,13 +8,14 @@
 // ====================================================================
 
 import { groupedSelectField } from './dom.mjs';
-import { PRINTER_PRESETS, PAPER_PRESETS, LENTICULAR_SUITABILITY, PRESET_PREFIX } from '../core/presets.mjs';
+import { PRINTER_PRESETS, PAPER_PRESETS, LENTICULAR_SUITABILITY, PRESET_PREFIX, PRINTER_BRANDS } from '../core/presets.mjs';
 
 export function printerSelect(app, value, { label = 'Printer', noneLabel = '— none (enter DPI) —', onChange } = {}) {
     return groupedSelectField(label, value || '', [
         [null, [['', noneLabel]]],
         ['Your printer profiles', app.printers.list().map(p => [p.id, `${p.name} — ${p.dpi} DPI`])],
-        ['Presets — Epson EcoTank', PRINTER_PRESETS.map(p => [PRESET_PREFIX + p.id, `${p.brand} ${p.model} — ${p.dpi} DPI`])],
+        ...PRINTER_BRANDS.map(b => [`Presets — ${b}`, PRINTER_PRESETS.filter(p => p.brand === b)
+            .map(p => [PRESET_PREFIX + p.id, `${p.brand} ${p.model} — ${p.dpi} DPI`])]),
     ], { help: 'dpi', onChange });
 }
 
