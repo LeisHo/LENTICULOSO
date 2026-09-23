@@ -1,0 +1,27 @@
+{
+  "workbench": {
+    "version": 1,
+    "savedAt": "2026-09-23T07:36:42.319Z",
+    "data": {
+      "lw.printers": [
+        {
+          "kind": "printer",
+          "schemaVersion": 1,
+          "id": "printer-mudshsbr-i7f8lt",
+          "name": "TEST ET-8550 (Claude sync test)",
+          "model": "Epson EcoTank Photo ET-8550",
+          "dpi": 720,
+          "presetId": "epson-et-8550",
+          "nativeDpi": [
+            360,
+            720
+          ],
+          "media": "",
+          "notes": "Epson drivers work at 720 ppi (360 in draft/standard modes); build at 720 and print at the driver's High/Best quality with the matching paper type. Photo model with A3+ — prints a lens-sized A4 sheet with room to spare.",
+          "createdAt": "2026-09-23T07:36:39.591Z",
+          "updatedAt": "2026-09-23T07:36:39.808Z"
+        }
+      ]
+    }
+  }
+}
