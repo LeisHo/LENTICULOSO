@@ -1,0 +1,6 @@
+{
+  "case0:{\"sequence\":[0,1],\"dpi\":600,\"lpi\":100,\"orientation\":\"vertical\",\"boundary\":\"nearest\",\"sampling\":\"direct\",\"phase\":0}": "4a89a000",
+  "case1:{\"sequence\":[0,1,2],\"dpi\":600,\"lpi\":100.37,\"orientation\":\"vertical\",\"boundary\":\"nearest\",\"sampling\":\"lenticule\",\"phase\":0.3}": "8dc51f11",
+  "case2:{\"sequence\":[0,1,2,3],\"dpi\":720,\"lpi\":99.83,\"orientation\":\"horizontal\",\"boundary\":\"blend\",\"sampling\":\"lenticule\",\"phase\":0.125}": "6e5c3344",
+  "case3:{\"sequence\":[0,1,2,1],\"dpi\":1200,\"lpi\":100.347,\"orientation\":\"vertical\",\"boundary\":\"blend\",\"sampling\":\"direct\",\"phase\":0}": "45fd62b2"
+}

@@ -1,0 +1,111 @@
+LENTICULOSO -- CHANGELOG
+================================================================================
+
+PROJECT START: 2026-09-23  -  02:12 AM EDT
+
+(The folder began as a copy of the FONTSO project. Its history is preserved
+in data/raw/inherited-fontso-2026-09-23/docs/CHANGELOG.txt, not repeated
+here.)
+
+--------------------------------------------------------------------------------
+2026-09-23  -  02:12 AM - 02:14 AM
+
+New-project reset. Checked the scaffold copies against their canonical
+sources: src/devpanel/devPanel.js is identical to TEMPLATE_DEV_PANEL.html's
+<script> block except the one documented splice line, and lib/ui-engine/*
+has 0 diffs against HTML UI ENGINE (v0.2.6). Moved FONTSO-specific material
+aside rather than deleting it.
+
+Changed:
+- lab/, data/Fonts/, node_modules/ and the FONTSO docs/README/CLAUDE.md/
+  serve.py/vercel.json moved into data/raw/inherited-fontso-2026-09-23/.
+- FONTSO identifiers and localStorage keys renamed to LENTICULOSO
+  (renderLenticulosoDevGroups, LENTICULOSO_SETTINGS_SCHEMA_VERSION,
+  lenticuloso.* keys).
+- serve.py: removed the /api/fonts endpoint and the default GITHUB_REPO
+  (it pointed at FONTSO's repo; now required, like api/save-settings.js).
+- vercel.json: removed the /lab redirect. .gitignore: dropped font rules.
+- README + docs reset to the workspace blank templates; CLAUDE.md rewritten
+  as a scaffold-only template.
+
+Verified:
+- Scaffold page loads with the dev panel; only the expected 503s from the
+  unconfigured settings endpoint.
+
+--------------------------------------------------------------------------------
+2026-09-23  -  02:16 AM - 02:41 AM
+
+Built Lenticular Workbench v1 on the scaffold, per the user's full brief.
+
+Added:
+- src/lenticular/core/: units, interlace (N-frame, absolute-position slot
+  assignment, optical inversion, phase, nearest/blend boundaries,
+  lenticule-average/direct sampling, view simulation), calibration
+  (coarse/refine/phase candidates, sheet layout), profiles (separate lens
+  and printer stores with CRUD + JSON import/export, calibration session),
+  encode (PNG pHYs injection, TIFF), checks, transform.
+- src/lenticular/ui/: Calibrate (7 steps incl. band-count helper and
+  resolution warning), Create (lens/printer, size presets in in/mm,
+  frames with drag reorder, Reverse, loop/ping-pong, built-in test
+  frames, alignment editor with ghost/difference overlay, drag/scroll,
+  crop/fit/rotate/flip, copy/paste/reset/apply-to-all; generate;
+  simulated preview with viewing slider; print-safety checklist gating
+  PNG/TIFF export), Lens Profiles, Printer Profiles, Settings.
+- src/main.js: mounts the app; registers lwHeader/lwMain with the UI
+  Layout Engine (data/processed/ui-layout-config.json); new "Workbench
+  Display" dev-panel group (5 controls); settings schema version 1 → 2.
+- tests/core.test.mjs (21 tests) + tests/fixtures/interlace-golden.json.
+- docs/INTERLACING_METHOD.md (method, evidence labels, references).
+
+Fixed (during the build):
+- Element.append(null) printed "null" in the Calibrate derived panel --
+  added a null-skipping add() helper.
+- The inch ruler length mixed px and mm and overlapped the 50 mm box --
+  moved it to its own row with the length computed in print pixels.
+- Refine candidates didn't rebuild until a tab switch -- committed
+  changes now re-render.
+
+Verified:
+- node --test: 21/21 pass.
+- Browser (1400×900 and 375×812): full calibrate → refine (to 100.347) →
+  phase → save profile; Create with 3 uploaded images at 100.347 LPI,
+  vertical and horizontal, ping-pong; exported 3600 × 2400 PNG has pHYs
+  23,622 px/m and matched an independent re-computation with 0 differing
+  bytes; TIFF reads back 600 DPI; printer profile save/duplicate/export/
+  delete/import; lens rename; the dev-panel Mobile row appears and drives
+  the setting; no console errors besides the expected settings-endpoint 503.
+- NOT verified: anything on a physical print.
+
+--------------------------------------------------------------------------------
+2026-09-23  -  02:54 AM - 03:00 AM
+
+Fixed the "empty app when opening index.html" report. There were two
+causes, and either one alone produced a blank page:
+- Opening index.html directly (file://) blocks ES modules, and the
+  Workbench's CSS had hidden the fallback message (#appStagePlaceholder
+  display:none), so nothing explained why.
+- The README said to use port 8420, but that port is held by another
+  chat's server serving FONTSO's blank scaffold (title "FONTSO", app.mjs
+  404 there).
+
+Added:
+- Start Lenticular Workbench.bat -- double-click launcher (checks Python,
+  runs serve.py on 8430 with --open, pauses on error).
+
+Changed:
+- serve.py: default port 8420 → 8430; --open flag; a clear message instead
+  of a traceback when the port is busy.
+- .claude/launch.json ports 8430-8433. README run section rewritten around
+  the launcher. CLAUDE.md gotcha + file map.
+- The fallback message is now visible and explains the fix (theme-aware
+  colours); lenticular.css ?v=2.
+
+Verified:
+- The user's own launcher server (python serve.py 8430 --open) serves the
+  app; the page loads all 5 tabs and the fallback message is cleared on mount.
+
+================================================================================
+APPEND-ONLY. Never rewrite, reorder, or delete a prior entry, even to fix
+formatting (CLAUDE.md §4a / Never-Skip rule #3). If an entry needs a
+correction, add a new entry noting the correction rather than editing the
+old one in place.

@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/active/serve.py", "8430"],
+      "port": 8430
+    },
+    {
+      "name": "static-alt",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/active/serve.py", "8431"],
+      "port": 8431
+    },
+    {
+      "name": "static-alt2",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/active/serve.py", "8432"],
+      "port": 8432
+    },
+    {
+      "name": "static-alt3",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/active/serve.py", "8433"],
+      "port": 8433
+    }
+  ]
+}

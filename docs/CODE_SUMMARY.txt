@@ -1,0 +1,96 @@
+LENTICULOSO -- CODE SUMMARY
+================================================================================
+
+Status: see ../README.md for the project-structure layout and how to run it;
+this file is a quick orientation pointer into the actual code, not a
+duplicate of the README's tree.
+
+--------------------------------------------------------------------------------
+FILE MAP
+
+- `src/lenticular/core/units.mjs` -- LPI/pitch/DPI/pixel conversions, paper
+  sizes, pitch-test band maths (bands = length × |ΔLPI|).
+- `src/lenticular/core/interlace.mjs` -- the engine: buildSequence (loop/
+  ping-pong), buildAxisMap (per-pixel slot/lenticule/weight), interlaceRGBA
+  (N frames → RGBA, nearest/blend, lenticule/direct sampling),
+  fillInterlacedRect (calibration patterns), simulateView (preview from the
+  generated raster), fnv1a (golden hashes).
+- `src/lenticular/core/calibration.mjs` -- coarse/refine/phase candidate
+  lists (exact decimals), calibration sheet pixel layout.
+- `src/lenticular/core/profiles.mjs` -- lens/printer profile factories,
+  validation, a storage-injected CRUD store (save/rename/duplicate/remove/
+  export/import), calibration-session state.
+- `src/lenticular/core/encode.mjs` -- CRC32, PNG pHYs injection/readback,
+  baseline RGB TIFF encoder/reader.
+- `src/lenticular/core/checks.mjs` -- pre-export consistency checks,
+  output geometry.
+- `src/lenticular/core/transform.mjs` -- per-frame placement matrix (crop,
+  fit, scale, rotate, flip, offset as fractions of the output).
+- `src/lenticular/app.mjs` -- shell: 5 tabs, stores on localStorage (memory
+  fallback), settings, a tiny event bus; exposes window.lenticularWorkbench.
+- `src/lenticular/ui/dom.mjs` -- h()/add() helpers, glossary + "?" help,
+  form fields, orientation picker, download, toast.
+- `src/lenticular/ui/calibrateView.mjs` -- CALIBRATE tab (steps 1–7).
+- `src/lenticular/ui/sheetRender.mjs` -- draws a calibration sheet at print
+  resolution (strips via the core, text/rulers via Canvas 2D).
+- `src/lenticular/ui/createView.mjs` -- CREATE tab (lens/printer, size,
+  frames, advanced, alignment editor, generate, preview, checklist/export).
+- `src/lenticular/ui/frameRender.mjs` -- draws a frame into the output frame
+  (same function for editor and export); built-in test frames; image loading.
+- `src/lenticular/ui/profilesView.mjs` -- LENS PROFILES + PRINTER PROFILES.
+- `src/lenticular/ui/settingsView.mjs` -- SETTINGS (display prefs, backup,
+  reset calibration session).
+- `src/lenticular/lenticular.css` -- app styling (light/dark).
+- `src/main.js` -- host: mounts the Workbench into #appStage, registers
+  appStage/lwHeader/lwMain with the UI Layout Engine, "Workbench Display"
+  dev-panel group, persistence.
+- `tests/core.test.mjs` + `tests/fixtures/interlace-golden.json` -- node
+  --test suite (the 15 required areas + extras).
+- `docs/INTERLACING_METHOD.md` -- the maths, conventions, evidence labels,
+  references.
+- Scaffold (unchanged template copies): `index.html` dev-panel markup,
+  `src/devpanel/devPanel.js`, `src/style.css` Part 1, `lib/ui-engine/`.
+- `data/raw/inherited-*` -- leftovers from projects this folder was copied
+  from. Not live.
+
+--------------------------------------------------------------------------------
+ARCHITECTURE
+
+core/ (pure) ← ui/ (DOM) ← app.mjs ← src/main.js (host). core never imports
+ui or touches the DOM, so everything numeric is testable under node.
+
+Create data flow: frames (ImageBitmap + transform) → frameRender draws ONE
+frame at full output size → interlaceRGBA pulls frames one at a time via
+getFrame(k) → RGBA raster → canvas → PNG (+pHYs) / TIFF. The preview calls
+simulateView() on that same raster, so it checks what will actually be
+printed.
+
+Calibrate data flow: settings → calibration.mjs candidates + layout →
+sheetRender (fillInterlacedRect per strip, sharing the sheet's lens
+origin) → PNG/TIFF → user prints and picks → selections saved to the
+calibration session → "Save as lens profile" writes effectiveLpi +
+history.
+
+Persistence keys (localStorage): lw.lenses, lw.printers, lw.calibration,
+lw.settings, lw.create, lw.tab. Images are never persisted.
+
+--------------------------------------------------------------------------------
+UNTOUCHABLE SYSTEMS
+
+- The interlacing convention (slot → sequence p = N−1−s, phase sign,
+  absolute-position assignment) is locked by golden fixtures; change it
+  only deliberately, with UPDATE_GOLDEN=1 and a CHANGELOG entry.
+- Template copies: src/devpanel/devPanel.js, src/style.css Part 1, the
+  dev-panel markup in index.html, lib/ui-engine/* (see CLAUDE.md).
+
+--------------------------------------------------------------------------------
+GOTCHAS
+
+- Native Element.append(null) inserts the text "null" -- use dom.mjs's
+  add() or h(), which skip null/false. (Hit while building the Calibrate
+  derived-values panel.)
+- Calibration sheet lengths must be computed in print pixels from DPI --
+  an early inch-ruler length mixed px and mm and overlapped the 50 mm box.
+- A document-wide query for `.orient-btn` hits the hidden Calibrate pane
+  first; scope DOM queries to the pane (`[data-pane=create]`) in tests.
+- The dev panel auto-opens on localhost and can sit over the app; press D.

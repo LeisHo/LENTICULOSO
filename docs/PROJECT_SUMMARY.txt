@@ -1,0 +1,98 @@
+LENTICULOSO -- PROJECT SUMMARY
+================================================================================
+
+Status: Lenticular Workbench v1 built and tested in the browser (calibrate →
+profile → create → export), as of 2026-09-23. Not yet checked against a
+physical print. See PROJECT_PROGRESS.md for what's actively being worked on
+right now, and CHANGELOG.txt for the full historical log -- this file stays
+a mid-altitude snapshot, not a duplicate of either.
+
+--------------------------------------------------------------------------------
+OBJECTIVE
+
+A local browser app ("Lenticular Workbench") that does two things for a
+user who owns a physical lenticular lens sheet (initially an A4 PET sheet
+sold as 100 LPI, 450 µm):
+  1. CALIBRATE the lens's effective pitch through printed pitch tests that
+     the user judges through the real lens (the user is the instrument).
+  2. CREATE print-ready interlaced PNG/TIFF files from 2..N images at that
+     calibrated, fractional LPI and the printer's DPI.
+
+Deliberately NOT: a server or cloud service, a framework/build step, an
+automatic "measure the lens from a photo" feature (not physically possible
+from an ordinary photo), or a PDF generator.
+
+--------------------------------------------------------------------------------
+SCOPE
+
+In scope: calibration sheets (coarse, fine, phase) with rulers; lens and
+printer profiles (separate entities, full CRUD and JSON import/export);
+alignment editor; N-frame interlacing (loop/ping-pong, reverse,
+drag-order, vertical/horizontal); simulated preview; print-safety
+checklist; PNG (with pHYs DPI) and TIFF export; a node test suite.
+
+Out of scope / dormant: the FONTSO "Font Path Laboratory" this folder was
+copied from — moved to data/raw/inherited-fontso-2026-09-23/ (gitignored,
+nothing live reads it). The older data/raw/inherited-handyset-2026-09-22/
+is also leftover from a previous copy.
+
+Audience / how it's used: a single user, locally, on desktop (the layout
+also works at phone width, but printing workflows are desktop).
+
+--------------------------------------------------------------------------------
+CURRENT STATE
+
+- Core maths (src/lenticular/core/, DOM-free): 21 node tests pass,
+  including golden FNV-1a fixtures over 4 interlace parameter sets.
+- Browser run (2026-09-23, 1400×900 and 375×812 viewports): coarse sheet
+  11 strips at 4488 × 6543 px @ 600 DPI; fine sheet 21 candidates;
+  0.001-step refine to 100.347; phase test; profile saved with full
+  history; Create with 3 uploaded images, drag reorder, reverse,
+  ping-pong, alignment drag/copy/paste/apply-all/reset, ghost overlay;
+  vertical and horizontal generation at 100.37 and 100.347 LPI; the
+  exported 3600 × 2400 PNG carries pHYs = 23,622 px/m and matched an
+  independent re-computation with 0 differing bytes; TIFF reads back
+  600 DPI.
+- Dev panel: "Workbench Display" group (5 controls); its Mobile/Landscape
+  mirroring was checked live.
+
+--------------------------------------------------------------------------------
+DECISIONS
+
+- Absolute-position slot assignment, never per-lenticule rounding -- so
+  fractional LPI never accumulates drift (docs/INTERLACING_METHOD.md §2).
+- Frame placement uses optical inversion (slot s holds sequence position
+  N−1−s) so left→right viewing shows A→B→C; Reverse is the escape hatch.
+- Default frame sampling = box average over each lenticule; default
+  boundary = nearest. Both are switchable.
+- effectiveLpi stays null until the user picks a printed strip; the
+  nominal value is never copied into it.
+- Lens and printer profiles are separate collections; a lens records which
+  printer/DPI it was calibrated with, but does not own a printer.
+- Phase is modelled separately from pitch; the phase test is optional and
+  opt-in in Create, and a manual phase shift is always available.
+- PNG is the primary output (pHYs injected); TIFF is secondary; no PDF.
+- Workbench UI is built with plain DOM helpers (ui/dom.mjs) -- no framework.
+- The UI Layout Engine positions only the stage/header/content regions;
+  the rest of the app is ordinary document flow.
+
+--------------------------------------------------------------------------------
+KNOWN LIMITATIONS
+
+- Nothing has been checked against a physical print yet: the inversion
+  convention, the phase mapping and the pitch-test legibility are all
+  UNVERIFIED on paper.
+- Large outputs run on the main thread (no Web Worker): a full A4 sheet at
+  600 DPI freezes the page for a few seconds while it generates.
+- Print scaling depends on the software the user prints from; the app can
+  only warn and provide rulers.
+- A pitch test is limited by strip length: fine steps below ~1/length LPI
+  are shown with a warning, not hidden.
+- Built-in test frames cannot be moved in the alignment editor.
+
+--------------------------------------------------------------------------------
+NEXT ACTION
+
+The user prints the coarse calibration sheet and runs the physical
+workflow; any mismatch between the simulated and real results gets fed
+back into the conventions above.

@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+*.log
+
+# Scraped/dumped/regenerable inputs, per the workspace CLAUDE.md §11
+# folder convention. data/processed/ is deliberately NOT ignored — the
+# dev-panel settings log and the UI layout config live there and are meant
+# to be tracked (§12l).
+data/raw/
+
+# Local screen recordings (bug-report clips etc.) — never meant to be
+# tracked; a blanket `git add -A` once swept one into a commit on a sibling
+# project before it was caught.
+datalog/
+
+node_modules/
+package-lock.json
