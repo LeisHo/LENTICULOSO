@@ -12,6 +12,7 @@ import { lpiToPitchMm, pixelsPerLenticule, lpiDeltaFromBands } from '../core/uni
 import { injectPngPhys, encodeTiff } from '../core/encode.mjs';
 import { makeLensProfile } from '../core/profiles.mjs';
 import { renderCalibrationSheet } from './sheetRender.mjs';
+import { encodePdfImage, rgbaToRgb } from '../core/pdf.mjs';
 import { printerSelect, paperSelect, suitabilityText } from './pickers.mjs';
 import { resolvePrinter, resolvePaper, nativeDpiOf } from '../core/presets.mjs';
 
@@ -183,7 +184,7 @@ export function mountCalibrate(root, app) {
         const { canvas, layout } = renderCalibrationSheet({
             kind: kind === 'phase' ? 'phase' : 'pitch', values, decimals, lpi,
             widthMm: st.widthMm, heightMm: st.heightMm, dpi: st.dpi, orientation: st.orientation,
-            printerName: [printer?.name, paper?.name].filter(Boolean).join(' · '),
+            printerName: printer?.name, paperName: paper?.name,
             title: kind === 'coarse' ? 'Lenticular PITCH test — COARSE' : kind === 'fine' ? `Lenticular PITCH test — FINE around ${st.coarseSelected}` : undefined,
         });
         return { canvas, layout, values, decimals, kind, dpi: st.dpi };
@@ -205,6 +206,16 @@ export function mountCalibrate(root, app) {
             const bytes = injectPngPhys(await canvasToPngBytes(s.canvas), s.dpi);
             downloadBytes(bytes, name + '.png', 'image/png');
         });
+        const pdf = h('button', { type: 'button' }, 'Download PDF');
+        pdf.addEventListener('click', async () => {
+            pdf.disabled = true;
+            try {
+                const { width, height } = s.canvas;
+                const rgb = rgbaToRgb(s.canvas.getContext('2d').getImageData(0, 0, width, height).data);
+                downloadBytes(await encodePdfImage({ rgb, width, height, dpi: s.dpi }), name + '.pdf', 'application/pdf');
+            } catch (e) { toast(e.message, 'error'); }
+            finally { pdf.disabled = false; }
+        });
         const tif = h('button', { type: 'button' }, 'Download TIFF');
         tif.addEventListener('click', () => {
             const data = s.canvas.getContext('2d').getImageData(0, 0, s.canvas.width, s.canvas.height).data;
@@ -214,7 +225,7 @@ export function mountCalibrate(root, app) {
             h('div.sheet-meta',
                 h('p', h('strong', `${s.values.length} strips`), ` · ${s.canvas.width} × ${s.canvas.height} px at ${s.dpi} DPI = ${fmt(s.canvas.width / s.dpi * 25.4, 1)} × ${fmt(s.canvas.height / s.dpi * 25.4, 1)} mm`),
                 h('p.muted.small', 'The on-screen thumbnail is downscaled and will show false moiré — judge only the PRINT. The file embeds its DPI so print software can size it correctly.'),
-                h('div.btn-row', png, tif)),
+                h('div.btn-row', png, pdf, tif)),
             h('div.thumb-wrap', thumb),
         );
     }

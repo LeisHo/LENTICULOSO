@@ -55,24 +55,28 @@ export function renderCalibrationSheet(opts) {
     ctx.fillStyle = '#000';
     ctx.textBaseline = 'top';
     ctx.font = `bold ${pt(13)}px sans-serif`;
-    ctx.fillText(opts.title || (kind === 'phase' ? 'Lenticular PHASE test' : 'Lenticular PITCH test'), hd.x, hd.y);
+    ctx.fillText((opts.title || (kind === 'phase' ? 'Lenticular phase test' : 'Lenticular pitch test')).toUpperCase(), hd.x, hd.y);
+    ctx.textAlign = 'right';
+    ctx.font = `${pt(7.5)}px sans-serif`;
+    ctx.fillText(new Date().toISOString().slice(0, 16).replace('T', ' '), W - hd.x, hd.y);
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#b00000';
     ctx.font = `bold ${pt(9.5)}px sans-serif`;
     ctx.fillText('PRINT AT 100% / ACTUAL SIZE. DISABLE FIT-TO-PAGE AND AUTOMATIC SCALING.', hd.x, hd.y + pt(17));
     ctx.fillStyle = '#000';
-    ctx.font = `${pt(7.5)}px sans-serif`;
     const res = 1 / layout.stripLengthIn;
     const info = [
-        `Raster ${W} × ${H} px @ ${dpi} DPI = ${widthMm} × ${heightMm} mm · lenticules ${orientation} · generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}` +
-            (opts.printerName ? ` · printed with: ${opts.printerName}` : ''),
+        [{ t: 'RASTER: ', bold: true }, { t: `${W} × ${H} px @ ${dpi} DPI = ${widthMm} × ${heightMm} mm` }],
+        opts.printerName ? [{ t: 'PRINTER: ', bold: true }, { t: opts.printerName }] : null,
+        opts.paperName ? [{ t: 'PAPER: ', bold: true }, { t: opts.paperName }] : null,
         kind === 'phase'
-            ? `Phase test at ${opts.lpi} LPI (pitch ${lpiToPitchMm(opts.lpi).toFixed(4)} mm). Align the lens against the paper's reference corner, look STRAIGHT ON, pick the strip that looks most solid BLACK.`
-            : `Each strip = black/white pattern at the LPI shown. Correct pitch: the strip flips uniformly black↔white as you tilt, with no bands. Wrong pitch: dark/light bands along the strip.`,
+            ? [{ t: 'PHASE TEST: ', bold: true }, { t: `at ${opts.lpi} LPI (pitch ${lpiToPitchMm(opts.lpi).toFixed(4)} mm). Align the lens against the paper's reference corner, look STRAIGHT ON, pick the strip that looks most solid BLACK.` }]
+            : [{ t: 'STRIP LENGTH: ', bold: true }, { t: `${layout.stripLengthIn.toFixed(2)} in → bands = length × |LPI error|; 1 band ≈ ${res.toFixed(3)} LPI error. Ticks along each strip mark inches (for counting bands).` }],
         kind === 'phase'
-            ? 'Only meaningful if you will place the lens the same way on your real prints.'
-            : `Strip length ${layout.stripLengthIn.toFixed(2)} in → bands = length × |LPI error|; 1 band ≈ ${res.toFixed(3)} LPI error. Ticks along each strip mark inches (for counting bands). View from your intended viewing distance.`,
-    ];
-    info.forEach((t, k) => ctx.fillText(t, hd.x, hd.y + pt(31) + k * pt(10), hd.w));
+            ? [{ t: 'NOTE: ', bold: true }, { t: 'Only meaningful if you will place the lens the same way on your real prints.' }]
+            : null,
+    ].filter(Boolean);
+    info.forEach((runs, k) => drawRuns(ctx, runs, hd.x, hd.y + pt(31) + k * pt(10), pt(7.5), hd.w));
 
     // 3. Rulers and physical references
     const r = layout.rulers;
@@ -102,7 +106,7 @@ export function renderCalibrationSheet(opts) {
         const text = kind === 'phase'
             ? `#${k + 1}  phase ${s.label}  (${(s.value * lpiToPitchMm(opts.lpi)).toFixed(4)} mm)`
             : `#${k + 1}  ${s.label} LPI`;
-        let size = pt(7.5);
+        let size = pt(9);
         ctx.font = `bold ${size}px sans-serif`;
         const maxW = orientation === 'vertical' ? lr.w * 0.5 : lr.w - line * 2;
         const tw = ctx.measureText(orientation === 'vertical' ? text : s.label).width;
@@ -115,7 +119,7 @@ export function renderCalibrationSheet(opts) {
             for (let i = 1; i * dpi < s.rect.w; i++) {
                 const x = s.rect.x + Math.round(i * dpi);
                 ctx.fillRect(x, lr.y + lr.h * 0.45, line, lr.h * 0.55);
-                if (x > lr.x + lr.w * 0.5) ctx.fillText(String(i), x + line * 2, lr.y + line);
+                ctx.fillText(String(i), x + line * 2, lr.y + line);
             }
         }
     }
@@ -169,5 +173,20 @@ function drawInchRuler(ctx, x0, y0, inches, dpi, pt, line) {
         if (i % 10 === 0) ctx.fillText(i / 10 + ' in', x + line * 2, y0 + dpi * 0.13);
     }
     ctx.font = `bold ${pt(7)}px sans-serif`;
-    ctx.fillText(`${inches} in (tenths)`, x0, y0 + dpi * 0.28);
+    ctx.fillText(`${inches} in (1/10's)`, x0, y0 + dpi * 0.28);
+}
+
+function drawRuns(ctx, runs, x, y, size, maxW) {
+    let total = 0;
+    for (const r of runs) {
+        ctx.font = `${r.bold ? 'bold ' : ''}${size}px sans-serif`;
+        total += ctx.measureText(r.t).width;
+    }
+    const px = total > maxW ? size * (maxW / total) : size;
+    let cx = x;
+    for (const r of runs) {
+        ctx.font = `${r.bold ? 'bold ' : ''}${px}px sans-serif`;
+        ctx.fillText(r.t, cx, y);
+        cx += ctx.measureText(r.t).width;
+    }
 }

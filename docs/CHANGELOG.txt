@@ -202,6 +202,26 @@ Verified: local browser — menus 20/10/10 printers, 14/14/13/1 papers;
 Canon PRO-200 → 600 DPI; checklist driver hint; tables 40/42 rows; no
 console errors. Test data cleared.
 
+2026-10-11 — Calibration sheet: PDF export and label cleanup
+- Added "Download PDF" beside PNG/TIFF on the calibration sheet. New pure
+  core encoder src/lenticular/core/pdf.mjs writes one page sized from DPI
+  (width_pt = px / dpi * 72), image as FlateDecode RGB, no library added.
+  Tests: tests/pdf.test.mjs (3 new, all pass; 39 total).
+- Sheet text: title uppercased; timestamp right-aligned at title height with
+  "generated" removed; "lenticules <orientation>" removed; "printed with"
+  replaced by separate PRINTER: and PAPER: lines; "Each strip ... LPI shown"
+  and "View from your intended viewing distance" removed; leading labels
+  (RASTER, PRINTER, PAPER, STRIP LENGTH, PHASE TEST, NOTE) bold.
+- Strip labels (e.g. "720 LPI") enlarged to 9 pt bold (still shrink-to-fit).
+- Vertical strips: inch tick numbers now drawn for every tick, not only
+  those right of the label band.
+- Inch ruler suffix "(tenths)" changed to "(1/10's)".
+- Verified in local browser (screenshot of rendered 150 DPI sheet). Not
+  verified on a physical print.
+- Not changed (open questions): "Correct Width" heading named in review does
+  not exist in this sheet's text; horizontal-ridge sheets still draw no
+  inch ticks.
+
 ================================================================================
 APPEND-ONLY. Never rewrite, reorder, or delete a prior entry, even to fix
 formatting (CLAUDE.md §4a / Never-Skip rule #3). If an entry needs a
