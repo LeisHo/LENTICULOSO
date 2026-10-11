@@ -1,11 +1,11 @@
 {
   "workbench": {
     "version": 1,
-    "savedAt": "2026-10-11T05:18:40.507Z",
+    "savedAt": "2026-10-11T05:23:47.114Z",
     "data": {
       "lw.printers": [],
       "lw.calibration": {
-        "nominalLpi": 98,
+        "nominalLpi": 100,
         "minLpi": 99.5,
         "maxLpi": 100.5,
         "coarseStep": 0.1,
