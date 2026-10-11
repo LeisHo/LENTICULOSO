@@ -1,7 +1,7 @@
 {
   "workbench": {
     "version": 1,
-    "savedAt": "2026-10-11T05:23:47.114Z",
+    "savedAt": "2026-10-11T05:23:52.385Z",
     "data": {
       "lw.printers": [],
       "lw.calibration": {
@@ -14,7 +14,7 @@
         "dpi": 720,
         "widthMm": 190,
         "heightMm": 277,
-        "orientation": "vertical",
+        "orientation": "horizontal",
         "phaseCount": 8,
         "printerProfileId": "preset:epson-et-8550",
         "paperId": "preset:hp-premium-plus-softgloss",
