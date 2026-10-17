@@ -1,7 +1,7 @@
 {
   "workbench": {
     "version": 1,
-    "savedAt": "2026-10-11T05:30:27.710Z",
+    "savedAt": "2026-10-17T01:14:30.043Z",
     "data": {
       "lw.printers": [],
       "lw.calibration": {
@@ -12,8 +12,8 @@
         "refineHalfRange": 0.1,
         "refineStep": 0.01,
         "dpi": 720,
-        "widthMm": 190,
-        "heightMm": 277,
+        "widthMm": 196,
+        "heightMm": 259,
         "orientation": "horizontal",
         "phaseCount": 8,
         "printerProfileId": "preset:epson-et-8550",
